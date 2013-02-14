@@ -1,1 +1,3 @@
-The install script is for convenience. It updates the package's build date, creates the tarball, and installs it to the library of your choosing.
+An R package for inferring the subclonal architecture of tumors
+
+The install script is for convenience. It updates the package's build date, creates the tarball, and installs it to the R library path (edit this in the script).
