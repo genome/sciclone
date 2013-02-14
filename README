@@ -1,0 +1,1 @@
+The install script is for convenience. It updates the package's build date, creates the tarball, and installs it to the library of your choosing.

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#auto update the build time
+grep -v "^Packaged:" sciClone/DESCRIPTION >zz
+mv -f zz sciClone/DESCRIPTION
+thedate=`date +"%F %r"`;
+echo "Packaged: $thedate; cmiller" >>sciClone/DESCRIPTION
+
+
+version=$(grep "Version" sciClone/DESCRIPTION | awk '{print $2}')
+R CMD build sciClone && R CMD INSTALL sciClone_$version.tar.gz

@@ -1,0 +1,10 @@
+Package: sciClone
+Title: Find clones from vaf data
+Version: 0.2.0
+Author: Nathan Dees, Chris Miller, Brian White
+Description: Get all dem clones. For realz.
+Maintainer: Chris Miller <cmiller@genome.wustl.edu>
+LazyLoad: yes
+License: Apache License 2.0 | file LICENSE
+Depends: mixtools, IRanges, mixdist
+Packaged: 2013-02-14 03:57:02 PM; cmiller

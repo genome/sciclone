@@ -1,0 +1,3 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+include /usr/share/R/debian/r-cran.mk
