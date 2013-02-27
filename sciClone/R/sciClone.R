@@ -8,339 +8,301 @@
 ##
 ## positionsToHighlight is a data frame where the first two columns are - chr, pos
 ##
-sciClone <- function(vafs, outputImage, copyNumberCalls=NULL, sampleName,
-                        minimumDepth=100, clusteredDataOutputFile=NULL,
-                        componentDistribution="Binomial", maximumClustersToTest=8,
-                        minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
-                        overlayClusters=FALSE, plotOnlyCN2=FALSE, positionsToHighlight=NULL,
-                        purity=0, highlightSexChrs=TRUE, testing=FALSE, cnCallsAreLog2=FALSE,
-                        useSexChrs=TRUE, highlightsHaveNames=FALSE, doClustering=TRUE){
+sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, sampleNames,
+                     minimumDepth=100, clusteredDataOutputFile=NULL,
+                     clusterMethod="bmm",clusterParams=NULL,
+                     minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
+                     overlayClusters=FALSE, plotOnlyCN2=FALSE, positionsToHighlight=NULL,
+                     purities=NULL, highlightSexChrs=TRUE, testing=FALSE, cnCallsAreLog2=FALSE,
+                     useSexChrs=TRUE, highlightsHaveNames=FALSE, doClustering=TRUE, verbose=TRUE){
 
-  library(mixtools)
-  library(mixdist)
-  names(vafs) = c("chr","st","ref","var","vaf")
 
-  ##remove MT values
-  vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
 
-  ##remove NA sites
-  vafs = vafs[!(is.na(vafs$vaf)),]
-  
-  if(is.null(copyNumberCalls)){
-    ##assume all sites are 2x if no cn info
-    print("No copy number file specified. Assuming all variants have a CN of 2.")
-    vafs$cn = 2;
+  if(verbose){print("checking input data...")}
+
+  #how many samples do we have?
+  dimensions=NULL;
+  if(is.data.frame(vafs)){
+    dimensions = 1;
+    vafs=list(vafs)
+    copyNumberCalls=list(copyNumberCalls)
+    sampleNames=c(sampleNames)
+  } else if(is.list(vafs)){
+    dimensions = length(vafs);
   } else {
-    if(cnCallsAreLog2){
-      copyNumberCalls[,4] = (2^(copyNumberCalls[,4]))*2
-    }
-    vafs = addCnToVafs(vafs,copyNumberCalls)
+    stop("input param vafs must be either a data frame (for 1-sample clustering), or a list of data frames (for multi-sample clustering)")
   }
 
-  ##sanity check
+  ##some sanity checks on the input data
+  if(dimensions > 1){
+    if(length(sampleNames) != dimensions){
+      stop(paste("the number of sample names (",length(sampleNames),") does not equal the number of input samples (",dimensions,")",sep=""))
+    }
+  }
+  if(!(is.null(copyNumberCalls))){
+    if(length(copyNumberCalls) != dimensions){
+      stop(paste("the number of input copy number calls(",length(copyNumberCalls),") does not equal the number of input samples (",dimensions,")",sep=""))
+    }
+  } else {
+    print("No copy number files specified. Assuming all variants have a CN of 2.")
+    copyNumberCalls = vector("list",dimensions)
+  }
+  
+  if(!(is.null(purities))){
+    if(length(purities) != dimensions){
+      stop(paste("the number of input purities calls(",length(purities),") does not equal the number of input samples (",dimensions,")\nEither provide a purity for each sample, or set purities to NULL and it will be estimated for you",sep=""))
+    }
+  }
+
   if(highlightsHaveNames){
     if(is.null(positionsToHighlight)){
       print("ERROR - if highlightsHaveNames is true, positionsToHighlight must be provided")
       stop()
-    }
+xs    }
     plotOnlyCN2=TRUE;
   }
   
-  ##remove sex chromosomes if specified
-  if(!(useSexChrs)){
-    vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
-  }
-  
-  ##add depth
-  vafs = vafs[vafs$vaf > 0,]
-  vafs$depth = round(vafs$var/(vafs$vaf/100))
-
-  ##remove any sites with less than the minimum depth
-  vafs = vafs[vafs$depth >= minimumDepth,]
-  if(length(vafs$chr) == 0){
-    print(paste("No variants exceed a depth of",minimumDepth,". Lower this threshold and try again."))
-    stop()
-  }
-  print(paste("Number of variants with depth >= ",minimumDepth," being used for analysis: ",length(vafs$chr),sep=""))
-
   
   
-  ##calculate the densities and peaks for variants of each copy number
-  ##default cutoffs are +/- 0.5x cn
-  densities = vector("list",4)
-  factors = vector("list",4)
-  peakPos = vector("list",4)
-  peakHeights = vector("list",4)
-  vafsByCn = vector("list",4)
+  ##-----------------------------------------
+  if(verbose){print("calculating kernel density and purity")}
 
-  cnLoThresh = c(0,1.5,2.5,3.5)
-  cnHiThresh = c(1.5,2.5,3.5,4.5)
+  densityData=NULL
 
-  maxDensity = 0
-  maxDepth = 0;
-
-  for(i in 1:4){
-    ##grab only the variants in this copy number
-    v = vafs[vafs$cn > cnLoThresh[i] & vafs$cn < cnHiThresh[i],]
-    if(length(v[,1]) > 0){
-
-      ##need two points for density calc
-      if(length(v[,1]) > 1){
-        ##calculate the density
-        densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE)
-        factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
-        ##find the peaks
-        p = c(getPeaks(factors[[i]]),FALSE,FALSE)
-        peakPos[[i]] = densities[[i]]$x[p]
-        peakHeights[[i]] = factors[[i]][p]
-        ##store the largest density for use in scaling the plots later
-        if(max(factors[[i]]) > maxDensity){
-          maxDensity = max(factors[[i]])
-        }
-
-      }
-
-      ##store the vaf info
-      vafsByCn[[i]] = v
-
-      ##store the largest depth for use in scaling the plots later
-      if(max(vafsByCn[[i]]$depth) > maxDepth){
-        maxDepth = max(vafsByCn[[i]]$depth)
-      }
-
-    } #else has a value of NULL
+  doPurityEst=FALSE;
+  if(is.null(purities)){
+    doPurityEst=TRUE;
+    purities = c()
   }
 
-  
-  ## This stop should probably be replaced so that plotting can take place
-  ## for tumors with ployplody, even if we can't cluster
-  ## (maybe we should even cluster with 3x regions, etc - put it on the todo list)
-  if(is.null(densities[[2]])){
-    print("can't do clustering - no copy-number neutral regions to operate on");
-    stop();
-  }
-
-
-  ##determine tumor purity if not specified
-  if (purity == 0){    
-    if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
-      purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;      
-      if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
-        nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
-        ##if the peak is between 50 and 60, assume that it's noise and
-        ##the peak is actually at 50
-        if (nextHighestPeak > 50 && nextHighestPeak < 60 && purity < 60) {
-          purity = 100;
-        }
-      }
-    }  
-    #if all of these failed to find a good peak, assume 100% purity
-    if (purity == 0) {
-      print("Unable to make reliable calculation of purity, so assuming 100%")
-      purity = 100;
+  ##clean up data, get kernel density, estimate purity
+  for(i in 1:dimensions){
+    vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, useSexChrs, minimumDepth)
+    ##calculate the densities and peaks for variants of each copy number
+    if(is.null(densityData)){
+      densityData = list(getDensity(vafs[[i]]))
+    } else {
+      densityData= c(densityData, list(getDensity(vafs[[i]])))
     }
-    print(paste("Tumor purity estimated to be ",signif(purity,4),".",sep=""));
+    
+    ## This stop should probably be replaced so that plotting can take place
+    ## for tumors with ployplody, even if we can't cluster
+    ## (maybe we should even cluster with 3x regions, etc - put it on the todo list)
+    if(is.null(densityData[[i]]$densities[[2]])){
+      stop(paste("can't do clustering - no copy number 2 regions to operate on in sample",i));
+    }
+
+    if(doPurityEst){
+      purities = c(purities,getPurity(densityData[[i]]$peakPos))
+    }
   }
 
 
+  ##-----------------------------------------------
+  ##do the clustering
+  if(verbose){print("Doing clustering...")}
+
+  ## merge the data frames to get a df with vafs and readcounts for each variant in each sample
+  vafs.merged = vafs[[1]]
+
+  if(dimensions > 1){
+    vafs.merged = vafs[[i]];
+    for(i in 2:dimensions){
+      vafs.merged = merge(vafs.merged, vafs[[i]], by.x=c(1,2), by.y=c(1,2), suffixes=c(i-1,i), all.x=TRUE, all.y=TRUE)
+    }
+  }  
+  
+  refcols = grep("^ref",names(vafs.merged))
+  varcols = grep("^var",names(vafs.merged))
+  vafcols = grep("^vaf",names(vafs.merged))
+  depthcols = grep("^depth",names(vafs.merged))
+  cncols = grep("^cn",names(vafs.merged))
+  ##change NA values introduced by merge to ref/var/vaf/depth of zero, cn of 2
+  for(i in c(vafcols,refcols,varcols,depthcols)){
+    vafs.merged[is.na(vafs.merged[,i]),i] = 0;
+  }
+  for(i in cncols){
+    vafs.merged[is.na(vafs.merged[,i]),i] = 2;
+  }
+  
+  #add sample names to make output pretty
+  names(vafs.merged)[refcols] = paste(sampleNames,".ref",sep="")
+  names(vafs.merged)[varcols] = paste(sampleNames,".var",sep="")
+  names(vafs.merged)[vafcols] = paste(sampleNames,".vaf",sep="")
+  names(vafs.merged)[depthcols] = paste(sampleNames,".depth",sep="")
+  names(vafs.merged)[cncols] = paste(sampleNames,".cn",sep="")  
+  
+  ##---------------------------------------------------
+  ##do the clustering
+  
+  ## remove any lines where all CN columns are not 2
+  ## we only cluster based on sites that are CN neutral in all samples
+
+  ## there is probably a better way to do this with an apply function...
+  cnNeutral = rep(1,length(vafs.merged[,1]))
+  for(i in 1:length(vafs.merged[,1])){
+    if(sum(as.numeric(vafs.merged[i,cncols]==2)) < length(cncols)){
+      cnNeutral[i] = 0
+    }
+  }
+  vafs.merged.cn2 = vafs.merged[as.logical(cnNeutral),]
+
+  #convert to a matrix to feed into clustering
+  vafs.matrix = as.matrix(vafs.merged.cn2[,vafcols])
+  #convert vafs to be between 0 and 1
+  vafs.matrix = vafs.matrix/100
+
+  clust=NULL
   if(doClustering){
-    ##----------------------------------------------------
-    ## determine number of clusters in the dataset
-    num_clusters = 0;
-    print("Performing 'mixdist' analysis...");
+    clust=clusterVafs(vafs.matrix, clusterMethod, purities, clusterParams)
+  }
+  numClusters=0
+  if(!(is.null(clust))){
+    numClusters = max(clust$cluster.assignments)
+    #append cluster assignments
+    vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
+    vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
+    #sort by chr, st
+    vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
+    print(paste("found",numClusters,"clusters"))
+  }
 
-    ##function to process mixdist results
-    process_percents <- function(percents,chisq,pval,componentDistribution) {
-      minchisq = NULL;
-      best_fit_component_assessment = 0;
-      minpval = NULL;
-      true_cluster_count = NULL;
+  ##--------------------------------------------------------
+  ##output and plots
+  if(!(is.null(clust)) & !(is.null(clusteredDataOutputFile))){
+    ##TODO - order these first    
+    write.table(vafs.merged, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
+  }
 
-      for (i in 1:maximumClustersToTest) {
-        if (percents[i]!="Error" && !is.nan(pval[i]) && pval[i] < 0.05) {
-          if (is.null(minchisq) || chisq[i] < minchisq) {
-            minchisq = chisq[i];
-            minpval = pval[i];
-            best_fit_component_assessment = i;
-          }
+  ##--------------------------------------------------
+  ##set up the plot
+  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2,
+         clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
+         overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight);
+#  plot2d(outputPrefix) #multiple times
+}
+
+
+##---------------------------------------------------------------------------------
+## Create the one dimensional plot with kde and scatter
+##
+plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight){
+  pdf(file=paste(outputPrefix,".1d.pdf",sep=""), width=3.3, height=7.5, bg="white");
+  numClusters = max(clust$cluster.assignments)
+  
+  ##one plot for each sample
+  for(d in 1:dimensions){
+    par(mfcol=c(5,1),mar=c(0.5,3,1,1.5),oma=c(3,0,4,0),mgp = c(3,1,0));
+
+    name=sampleNames[d]
+    
+    densities = densityData[[d]]$densities
+    factors = densityData[[d]]$factors
+    peakPos = densityData[[d]]$peakPos
+    peakHeights = densityData[[d]]$peakHeights
+    maxDepth = densityData[[d]]$maxDepth
+    maxDensity = densityData[[d]]$maxDensity
+
+  
+    ##draw the density plot
+    scalingFactor = 25/maxDensity;
+    plot.default(x=c(1:10),y=c(1:10),ylim=c(0,28),xlim=c(0,100),axes=FALSE, ann=FALSE,col="#00000000",xaxs="i",yaxs="i");
+
+    ##plot bg color
+    rect(0, 0, 100, 28, col = "#00000011",border=NA);
+    
+    axis(side=2,at=c(0,25),labels=c(0,sprintf("%.3f", maxDensity)),las=1,
+         cex.axis=0.6,hadj=0.6,lwd=0.5,lwd.ticks=0.5,tck=-0.01);
+    
+    ##are we plotting everything or just CN2?
+    cnToPlot = c();
+    if(plotOnlyCN2){
+      cnToPlot = c(2)
+    } else {
+      cnToPlot = 1:4
+    }
+        
+    ##colors for different copy numbers
+    colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
+    
+    for(i in cnToPlot){
+      if(!(is.null(densities[[i]]))){
+        ##density lines
+        lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
+        ##peak labels
+        ppos = c();
+        if(onlyLabelHighestPeak){
+          ppos = which(peakHeights[[i]] == max(peakHeights[[i]]))
+        } else {
+          ppos = which((peakHeights[[i]] == max(peakHeights[[i]])) &
+            (peakHeights[[i]] > minimumLabelledPeakHeight))
         }
-        true_cluster_count[i] = 0;
-        percentage_per_cluster = as.numeric(percents[[i]]);
-        true_clusters = percentage_per_cluster > 0.02;
-        for (j in 1:i) {
-          if (isTRUE(true_clusters[j])) {
-            true_cluster_count[i] = true_cluster_count[i] + 1;
-          }
+        if(length(ppos) > 0){
+          text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
+               labels=signif(peakPos[[i]][ppos],3),
+               cex=0.7, srt=0, col=colors[[i]]);
         }
-      }
-      print(paste("chosen_component_assessment = ",best_fit_component_assessment,", true_component_count = ",true_cluster_count[best_fit_component_assessment],", assessment_chisq_value = ",minchisq,", assessment_p-value = ",minpval,sep=""));
-
-      ## I was getting errors when no clusters exceeded the pval of 0.05
-      ## in that case, it returns numeric(0), which causes problems later on
-      ## solution is to return just 0 clusters and warn user
-      if(best_fit_component_assessment > 0){
-        return(true_cluster_count[best_fit_component_assessment]);
-      } else {
-        print("WARNING: unable to estimate number of clusters - significance of 0.05 not reached")
-        return(0)
       }
     }
     
-
-    ## run mixdist
-    data = vafsByCn[[2]]$vaf
-    grouped_data = NULL;
-
-    ## if ceiling of max(data) is odd, then add 1 and group data. else, group data using the even ceiling
-    if (ceiling(max(data))%%2) {
-      grouped_data = mixgroup(data, breaks = c(seq(0,ceiling(max(data))+1,2)));
+    
+    ##if we have X/Y vals from the clustering alg, add them
+    if(!(is.null(clust))){
+      points(clust$fit.x, clust$fit.y*25, type="l",col="grey50")
+    }
+  
+    ##legend
+    leg = c("1 Copy","2 Copies","3 Copies","4 Copies")
+    lcol=colors
+    if( length(cnToPlot)== 1 ){
+      leg=c("2 Copies")
+      lcol=colors[2]
+    }
+    if(!(is.null(clust))){
+      leg = c(leg,"Model Fit")
+      lcol = c(lcol, "grey50")
+    }
+    legend(x="topright", lwd=2, legend=leg, col=lcol, bty="n", cex=0.6, y.intersp=1.25);
+    
+    
+    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
+    mtext("Tumor Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
+    mtext("Kernel Density",side=2,cex=0.5,padj=-4.2);
+    
+    ##add a title to the plot
+    title=""
+    if(is.null(sampleNames)){
+      title="Clonality Plot"
     } else {
-      grouped_data = mixgroup(data, breaks = c(seq(0,ceiling(max(data)),2)));
+      title=paste(sampleNames,"Clonality Plot",sep=" ");
+    }
+    mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
+    
+
+    ##-----------------------------------------------------
+    ##create the scatterplots of vaf vs density
+
+    ##grab only the vafs for this sample:
+    a = vafs.merged[,c("chr","st")]
+    n = (d*5)-2 #this sample's columns
+    b = vafs.merged[ ,n:(n+4)]
+    vafs = cbind(a,b)
+    names(vafs) = c("chr","st","ref","var","vaf","depth","cn")
+    if(numClusters>0){
+      vafs = cbind(vafs, vafs.merged$cluster)
+      names(vafs)[8] = "cluster"
     }
 
-    ## for each component count, get mixdist fit estimates for normal distribution
-    percents=NULL; chisq=NULL; pval=NULL;
-    for (i in 1:maximumClustersToTest) {
-      data_params = NULL;
-      test = NULL;
 
-      if (componentDistribution == "Normal") {
-        data_params = mixparam(c(1:i)*(purity/2)/i,rep(sd(data),i));
-        test=try(mix(mixdat=grouped_data,mixpar=data_params, emsteps=3, dist="norm"), silent=TRUE);
-      }
-      if (componentDistribution == "Binomial") {
-        data_params = mixparam(c(1:i)*(purity/2)/i,rep(sd(data)/2,i));
-        test=try(mix(mixdat=grouped_data,mixpar=data_params, emsteps=3, dist="binom", constr=mixconstr(consigma="BINOM",size=rep(round(length(data)),i))), silent=TRUE);
-      }
-
-      if (class(test) == 'try-error') {
-        percents[i] = "Error";
-        print(paste("Common mixdist error when looking for ",i," components.",sep=""));
-      }
-      else {
-        percents[i]=list(test$parameters$pi)
-        chisq[i]=test$chisq;
-        pval[i] = test$P;
-
-        if(testing){
-          filename = paste("plot_component_",i,".pdf",sep="");
-          print(paste("Testing output: plotting ",filename));
-          pdf(filename)
-          ##dev.new();
-          plot(test);
-          ##dev.copy(pdf,filename);
-          d = dev.off();
-        }
-      }
+    for(i in cnToPlot){
+      v = vafs[vafs$cn==i,];
+      print(length(v[,1]))
+      drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
+      axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
     }
-    num_clusters = process_percents(percents,chisq,pval,componentDistribution);
-  } else {
-    num_clusters = 0
   }
-
+    
   
-
-  ##--------------------------------------------------
-  ##do the plotting
-  pdf(file=outputImage,width=3.3,height=7.5,bg="white");
-  par(mfcol=c(5,1),mar=c(0.5,3,1,1.5),oma=c(3,0,4,0),mgp = c(3,1,0));
-
-  scalingFactor = 25/maxDensity;
-
-  plot.default(x=c(1:10),y=c(1:10),ylim=c(0,28),xlim=c(0,100),axes=FALSE, ann=FALSE,col="#00000000",xaxs="i",yaxs="i");
-  ##plot bg color
-  rect(0, 0, 100, 28, col = "#00000011",border=NA);
-
-  axis(side=2,at=c(0,25),labels=c(0,sprintf("%.3f", maxDensity)),las=1,cex.axis=0.6,hadj=0.6,lwd=0.5,lwd.ticks=0.5,tck=-0.01);
-
-  ##are we plotting everything or just CN2?
-  cnToPlot = c();
-  if(plotOnlyCN2){
-    cnToPlot = c(2)
-  } else {
-    cnToPlot = 1:4
-  }
-
-  ##colors for different copy numbers
-  colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
-
-
-  for(i in cnToPlot){
-    if(!(is.null(densities[[i]]))){
-      ##density lines
-      lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
-      ##peak labels
-      ppos = c();
-      if(onlyLabelHighestPeak){
-        ppos = which(peakHeights[[i]] == max(peakHeights[[i]]))
-      } else {
-        ppos = which((peakHeights[[i]] == max(peakHeights[[i]])) &
-                     (peakHeights[[i]] > minimumLabelledPeakHeight))
-      }
-      if(length(ppos) > 0){
-        text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
-             labels=signif(peakPos[[i]][ppos],3),
-             cex=0.7, srt=0, col=colors[[i]]);
-      }
-    }
-  }
-
-  ##legend
-  if( length(cnToPlot)== 1 ){
-    legend(x="topright", lwd=2, legend=c("2 Copies"), col=colors[2], bty="n",
-           cex=0.6, y.intersp=1.25);
-  } else {
-    legend(x="topright", lwd=2, legend=c("1 Copy","2 Copies","3 Copies","4 Copies"),
-           col=colors, bty="n", cex=0.6, y.intersp=1.25);
-  }
-
-
-  ##legend for tier1 labeling
-  
-  
-
-  axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
-  mtext("Tumor Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
-  mtext("Kernel Density",side=2,cex=0.5,padj=-4.2);
-
-  ##add a title to the plot
-  title=""
-  if(is.null(sampleName)){
-    title="Clonality Plot"
-  } else {
-    title=paste(sampleName,"Clonality Plot",sep=" ");
-  }
-  mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
-
-
-  ##create the scatterplots of vaf vs density
-  for(i in cnToPlot){
-
-    drawScatterPlot(vafsByCn[[i]], highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames)
-
-    ## Plot clustered points
-    if(i==2 && overlayClusters && num_clusters > 0){
-      ## cluster tumor VAF data using mixtools
-      
-      mix_results <- normalmixEM(vafsByCn[[i]]$vaf, k=num_clusters, maxit=10000, maxrestarts=20);
-      posteriors <- mix_results$posterior;
-      clusters = NULL;
-      for (n in 1:(dim(posteriors)[1])) {
-        clusters[n]=as.numeric(which(posteriors[n,]==max(posteriors[n,]),arr.ind=T));
-      }
-      plot_clusters(vafsByCn[[i]]$vaf,clusters);
-
-      ## print output file displaying data points clustered and their associated cluster
-      if (!is.null(clusteredDataOutputFile)) {
-        output = cbind(vafsByCn[[i]],clusters);
-        names(output)[8] = "cluster"
-        write.table(output, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
-      }
-    }
-  }
-  axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
-
-
   if(length(cnToPlot < 2) && highlightsHaveNames){
     addHighlightLegend(vafsByCn[[i]], positionsToHighlight)
   } else {
@@ -348,21 +310,18 @@ sciClone <- function(vafs, outputImage, copyNumberCalls=NULL, sampleName,
       print("WARNING: highlighted point naming is only supported when plotOnlyCN2 is TRUE")
     }
   }
-
+  
   
   ##close the pdf
   devoff <- dev.off();
 }
 
 
-
-
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##
 addCnToVafs <- function(vafs,cncalls){
-  library(IRanges)
-
+  library(IRanges)  
   vafs$cn = NA
   ##for each chromosome
   for(chr in names(table(vafs$chr))){
@@ -393,6 +352,134 @@ addCnToVafs <- function(vafs,cncalls){
 
 
 
+##---------------------------------------------------------------------
+## clean up vaf data, add cn
+##
+cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, useSexChrs, minimumDepth){
+  names(vafs) = c("chr","st","ref","var","vaf")
+
+  ##remove MT values
+  vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
+
+  ##remove NA sites
+  vafs = vafs[!(is.na(vafs$vaf)),]
+
+  ##add depth
+  vafs = vafs[vafs$vaf > 0,]
+  vafs$depth = round(vafs$var/(vafs$vaf/100))
+
+  ##add cn calls
+  if(is.null(cn)){
+    ##assume all sites are 2x if no cn info
+    vafs$cn = 2;
+  } else {
+    if(cnCallsAreLog2){
+      cn[,4] = (2^(copyNumberCalls[,4]))*2
+    }
+    vafs = addCnToVafs(vafs,cn)
+  }
+  ##remove sex chromosomes if specified
+  if(!(useSexChrs)){
+    vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
+  }
+  
+  ##remove any sites with less than the minimum depth
+  vafs = vafs[vafs$depth >= minimumDepth,]
+  if(length(vafs$chr) == 0){
+    print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
+    stop()
+  }
+  print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
+
+  return(vafs)
+
+}
+
+
+
+##--------------------------------------------------------------------------
+## calculate a samples purity from VAF peaks
+##
+getPurity <- function(peakPos){
+  purity = 0
+  if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
+    purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
+    if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
+      nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
+      ##if the peak is between 50 and 60, assume that it's noise and
+      ##the peak is actually at 50
+      if (nextHighestPeak > 50 && nextHighestPeak < 60 && purity < 60) {
+        purity = 100;
+      }
+    }
+  }
+  ##if all of these failed to find a good peak, assume 100% purity
+  if (purity == 0) {
+    print("Unable to make reliable calculation of purity, so assuming 100%")
+    purity = 100;
+  }
+  print(paste("Tumor purity estimated to be ",signif(purity,4),".",sep=""));
+  return(purity)
+}
+
+
+
+##--------------------------------------------------------------------------
+## calculate the 1d kernel density and peaks
+##
+getDensity <- function(vafs){
+  ##data structure to hold infoemacs sp
+  densities = vector("list",4)
+  factors = vector("list",4)
+  peakPos = vector("list",4)
+  peakHeights = vector("list",4)
+  maxDensity = 0
+  maxDepth=0
+
+  ##default cutoffs are +/- 0.5x cn
+  cnLoThresh = c(0,1.5,2.5,3.5)
+  cnHiThresh = c(1.5,2.5,3.5,4.5)
+
+  for(i in 1:4){
+    ##grab only the variants in this copy number
+    v = vafs[vafs$cn > cnLoThresh[i] & vafs$cn < cnHiThresh[i],]
+    if(length(v[,1]) > 0){
+
+      ##need two points for density calc
+      if(length(v[,1]) > 1){
+        ##calculate the density
+        densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE)
+        factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
+        ##find the peaks
+        p = c(getPeaks(factors[[i]]),FALSE,FALSE)
+        peakPos[[i]] = densities[[i]]$x[p]
+        peakHeights[[i]] = factors[[i]][p]
+        ##store the largest density for use in scaling the plots later
+        if(max(factors[[i]]) > maxDensity){
+          maxDensity = max(factors[[i]])
+        }
+
+      }
+
+      ##store the largest depth for use in scaling the plots later
+      if(max(v$depth) > maxDepth){
+        maxDepth = max(v$depth)
+      }
+
+    } #else has a value of NULL
+  }
+  return(list(densities=densities,
+              factors=factors,
+              peakPos=peakPos,
+              peakHeights=peakHeights,
+              maxDensity=maxDensity,
+              maxDepth=maxDepth))
+}
+
+
+
+
+
 ##--------------------------------------------------------------------
 ## find inflection points (peaks)
 ##
@@ -410,7 +497,7 @@ getPeaks<-function(series,span=3){
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters){
 
   ## define plot colors
   ptcolor = colors[cn]
@@ -421,23 +508,59 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
-  if(length(data[,1]) > 0){
-    ## plot data points
+  addPoints <- function(data, color, highlightSexChrs, pch=NULL){
+    outlineCol = rgb(0,0,0,0.1);
     if(highlightSexChrs){
       ##plot autosomes
       data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=0.75, col=ptcolor);
-      ##plot sex chromsomes highlighted
+      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=0.75, col=color);
+      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75, col=outlineCol, lwd=);
+      ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=2, cex=0.75, col=ptcolor);
+      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=0.75, col=color);
+      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75, col=outlineCol);
     } else {
-      points(data$vaf, data$depth, type="p", pch=16, cex=0.75, col=ptcolor);
+      points(data$vaf, data$depth, type="p", pch=16, cex=0.75, col=color);
+      ##add outline
+      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75, col=outlineCol);
+    }
+
+  }
+
+  #do we have any points to plot?
+  if(length(data[,1]) > 0){
+    ##if we have cluster assignments in col 8, color them
+    if(length(data) > 7 & overlayClusters){
+      library(RColorBrewer)
+      clusters=sort(unique(data[,8]))
+      cols = NA;
+      ##repeat colors if more than 5 clusters
+      ## cols=brewer.pal(5,"Greens")
+      ## if(length(clusters)>5){
+      ##   cols = rep(ceiling(length(clusters)/5),cols)
+      ## }
+      cols=brewer.pal(8,"Dark2")
+      if(length(clusters)>8){
+        cols = rep(ceiling(length(clusters)/8),cols)
+      }
+
+      #add transparency to colors
+      for(i in 1:length(cols)){
+        z = col2rgb(cols[i])
+        cols[i] = rgb(z[1], z[2], z[3], 200, maxColorValue=255)
+      }
+
+      for(i in 1:length(clusters)){
+        p = data[data$cluster == i,]
+        addPoints(p,cols[i],highlightSexChrs)
+      }
+    } else { #just use the normal color
+      addPoints(data,ptcolor,highlightSexChrs)
     }
 
     ##TODO - add a legend for point types - highlight vs sex chrs vs autosomes
 
-
-    ## add highlighted of points selected for by user
+    ## add highlighted points selected for by user
     if(!(is.null(positionsToHighlight))){
       addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
       if(length(addpts[,1]) > 1){
@@ -446,7 +569,8 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
             text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
           }
         } else {
-          points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8,col="#555555FF");
+          addPoints(addpts, col="#555555FF", highlightSexChrs);
+          #points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8,col="#555555FF");
         }
       }
     }
@@ -470,6 +594,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   mtext("Tumor Coverage",side=2,cex=0.5,padj=-4.2);
 }
 
+
 ##--------------------------------------------------------------------
 ## add a legend for highlighted points with names
 addHighlightLegend <- function(data, positionsToHighlight){
@@ -481,25 +606,18 @@ addHighlightLegend <- function(data, positionsToHighlight){
 
 
   names(positionsToHighlight)=c("chr","st","name");
-  
+
   if(!(is.null(positionsToHighlight))){
     addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
     if(length(addpts[,1]) > 1){
-##      ncol=ceiling(length(addpts[,1])/13)
-##      legend(0, 750, legend=addpts$name, pch=as.character(1:(length(addpts[,1]))),
-##             cex=0.5, bty="n", ncol=ncol)
       ypos=rev(seq(0,900,(900/13)))[1:13]
       ncol=ceiling(length(addpts[,1])/13)
       xpos=0;
       offset=1
-      for(i in 1:ncol){        
+      for(i in 1:ncol){
         names = addpts[offset:(offset+12),]$name;
         names = as.character(names[!(is.na(names))])
         num = length(names)
-        print(num)
-        print(xpos)
-        print(ypos[1:num])
-        print(names)
 
         for(i in 1:num){
           text(xpos, ypos[i], paste(offset+i-1,". ",names[i],sep=""), cex=0.5, pos=4)
@@ -510,26 +628,3 @@ addHighlightLegend <- function(data, positionsToHighlight){
     }
   }
 }
-
-
-##--------------------------------------------------------------------
-## function to plot clusters
-plot_clusters <- function(data,clusters) {
-point_colors <- rainbow(max(clusters),alpha=0.2);
-  text_colors <- rainbow(max(clusters),alpha=1.0);
-
-  for(k in 1:max(clusters)) {
-    vector_size = rep(7.1,length(subset(data,clusters==k)));
-    if (length(subset(data,clusters==k)) > 0) { #sometimes it doesn't assign any points to a cluster...don't understand why
-      points(subset(data,clusters==k),vector_size,col=point_colors[k],cex=0.75,type="p",pch=16);
-      ##text(x=mean(subset(data,clusters==k)),y=10,col=text_colors[k],labels=paste("C",k),cex=0.4);
-      text(x=median(subset(data,clusters==k)),y=14.1,col=text_colors[k],labels=round(mean(subset(data,clusters==k)),1),cex=0.7);
-      abline(v = (min(subset(data,clusters==k))-.4),col=text_colors[k],cex=0.5,lwd=0.4) # add vertical line at min of x
-      abline(v = (max(subset(data,clusters==k))+.4),col=text_colors[k],cex=0.5,lwd=0.4) # add vertical line at max of x
-      #print(min(subset(data,clusters==k)));
-      #print(max(subset(data,clusters==k)));
-    }
-  }
-}
-
-
