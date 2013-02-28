@@ -7,4 +7,4 @@ Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends: mixtools, IRanges, mixdist
-Packaged: 2013-02-26 07:28:16 PM; cmiller
+Packaged: 2013-02-28 09:54:02 AM; cmiller
