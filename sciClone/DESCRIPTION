@@ -2,7 +2,7 @@ Package: sciClone
 Title: Find clones from vaf data
 Version: 0.2.0
 Author: Nathan Dees, Chris Miller, Brian White
-Description: Get all dem clones. For realz.
+Description: Infer clonal entities in specimen using clustered vaf and read count data obtained from sequenced samples.
 Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
