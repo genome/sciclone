@@ -31,6 +31,12 @@
     designation within window; unrepresented regions are assumed to have
     copy number equal to 2
   }
+  \item{regionsToExclude}{
+    windowed exclusion regions in 3-column format: 1) chromosome 2) window
+    start position 3) window stop position; single nucleotide variants
+    falling into these windows will not be included in the analysis; use
+    for copy-number-neutral LOH regions, for example
+  }
   \item{sampleName}{
     text describing the data or sample (used for plotting purposes)
   }
@@ -42,8 +48,8 @@
     points
   }
   \item{componentDistribution}{
-    distribution used in modeling variant subclones (options are
-    "Normal" or "Binomial")
+    distribution used in modeling variant subclones (options are "Beta",
+    "Normal", or "Binomial")
   }
   \item{maximumClustersToTest}{
     max number of clusters to consider when chosing the best component
