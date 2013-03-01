@@ -307,7 +307,7 @@ getClusterColors <- function(numClusters){
 
   cols=brewer.pal(8,"Dark2")
   if(numClusters>8){
-    cols = c(cols,brewer.pal(12,"Set1"))
+    cols = c(cols,brewer.pal(9,"Set1"))
   }
   if(numClusters > 20){ #if this happens, something is probably weird with your data, but we'll support it anyway
     cols = rep(cols,ceiling(length(cols)/20))
