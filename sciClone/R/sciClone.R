@@ -155,7 +155,7 @@ xs    }
   }
   numClusters=0
   if(!(is.null(clust))){
-    numClusters = max(clust$cluster.assignments)
+    numClusters = max(clust$cluster.assignments,na.rm=T)
     #append cluster assignments
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
@@ -208,6 +208,14 @@ addCnToVafs <- function(vafs,cncalls){
     }
   }
 
+  ##round these values to absolute calls
+  for(n in 0:4){
+    pos = which(vafs$cn >= (n-0.5) & vafs$cn < n+0.5)
+    if(length(pos) > 0){
+      vafs[pos,]$cn = n
+    }
+  }
+    
   if(length(which(is.na(vafs$cn))) > 0){
     print("Not all variants fall within a provided copy number region. The copy number of these variants is assumed to be 2.")
     vafs[which(is.na(vafs$cn)),]$cn = 2

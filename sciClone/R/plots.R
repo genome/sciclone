@@ -159,8 +159,8 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   #do we have any points to plot?
   if(length(data[,1]) > 0){
     ##if we have cluster assignments in col 8, color them
-    if(length(data) > 7 & overlayClusters){
-      numClusters=length(unique(data[,8]))
+    if(length(data) > 7 & overlayClusters & cn==2){
+      numClusters=max(data[,8],na.rm=T)
       cols = getClusterColors(numClusters)
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
@@ -248,7 +248,7 @@ addHighlightLegend <- function(data, positionsToHighlight){
 ##
 plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters){
   pdf(file=paste(outputPrefix,".2d.pdf",sep=""), width=7.2, height=6, bg="white")
-  numClusters = max(vafs.merged$cluster)
+  numClusters = max(vafs.merged$cluster, na.rm=T)
 
   
   ##create a 2d plot for each pairwise combination of samples
@@ -332,7 +332,7 @@ getOneSampleVafs <- function(vafs.merged, d, numClusters){
   b = vafs.merged[ ,n:(n+4)]
   vafs = cbind(a,b)
   names(vafs) = c("chr","st","ref","var","vaf","depth","cn")
-  if(numClusters>0){
+  if(numClusters > 0){
     vafs = cbind(vafs, vafs.merged$cluster)
     names(vafs)[8] = "cluster"
   }
