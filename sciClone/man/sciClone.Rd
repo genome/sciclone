@@ -7,7 +7,7 @@
   sciClone integrates the read depth and copy number information at single nucleotide variant locations in order to create a visualization of the sub-clonal variant populations areas of deleted, neutral, and amplified copy number. Variants are optionally clustered to formalize predictions of the sub-clonal makeup of the sample.
 }
 \usage{
-    sciClone(vafs, outputImage, copyNumberCalls = NULL, sampleName, 
+    sciClone(vafs, outputImage, copyNumberCalls = NULL, regionsToExclude = NULL, sampleNames, 
             minimumDepth = 100, clusteredDataOutputFile = NULL, componentDistribution = "Binomial", 
             maximumClustersToTest = 8, minimumLabelledPeakHeight = 0.001, 
             onlyLabelHighestPeak = FALSE, overlayClusters = FALSE, plotOnlyCN2 = FALSE, 
@@ -37,7 +37,7 @@
     falling into these windows will not be included in the analysis; use
     for copy-number-neutral LOH regions, for example
   }
-  \item{sampleName}{
+  \item{sampleNames}{
     text describing the data or sample (used for plotting purposes)
   }
   \item{minimumDepth}{
