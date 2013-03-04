@@ -8,7 +8,7 @@
 ##
 ## positionsToHighlight is a data frame where the first two columns are - chr, pos
 ##
-sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, sampleNames,
+sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude = NULL, sampleNames,
                      minimumDepth=100, clusteredDataOutputFile=NULL,
                      clusterMethod="bmm",clusterParams=NULL,
                      minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
@@ -76,7 +76,7 @@ xs    }
 
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
-    vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, useSexChrs, minimumDepth)
+    vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth)
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
       densityData = list(getDensity(vafs[[i]]))
@@ -220,52 +220,83 @@ addCnToVafs <- function(vafs,cncalls){
     print("Not all variants fall within a provided copy number region. The copy number of these variants is assumed to be 2.")
     vafs[which(is.na(vafs$cn)),]$cn = 2
   }
-  
+
   return(vafs)
 }
 
+
+##--------------------------------------------------------------------
+## intersect the variants with the regionsToExclude to remove them
+##
+excludeRegions <- function(vafs,regionsToExclude){
+    library(IRanges);
+    ##for each chromosome, find variants falling inside regions to be excluded
+    for(chr in names(table(regionsToExclude[,1]))){
+        vars = IRanges(start=vafs[vafs$chr==chr,]$st, end=vafs[vafs$chr==chr,]$st);
+        excludedRegions = IRanges(start=regionsToExclude[regionsToExclude[,1]==chr,2], end=regionsToExclude[regionsToExclude[,1]==chr,3]);
+        if( (length(vars) == 0) | (length(excludedRegions) == 0)){
+            next;
+        }
+        vars_to_exclude = as.matrix(findOverlaps(vars,excludedRegions));
+        print(vars_to_exclude);
+        ##if there are variants that fell inside the exclude regions, find them and remove them from vafs
+        if(length(vars_to_exclude) > 0){
+            for(i in vars_to_exclude[,1]){
+                vpos = which(vafs$chr==chr & vafs$st==start(vars[i,]));
+                if(identical(vpos,integer(0))) { next; }
+                ##remove the variant from vafs
+                vafs = vafs[-vpos,];
+            }
+        }
+    }
+
+    return(vafs)
+} # end excludeRegions
 
 
 ##---------------------------------------------------------------------
 ## clean up vaf data, add cn
 ##
-cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, useSexChrs, minimumDepth){
-  names(vafs) = c("chr","st","ref","var","vaf")
+cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth){
+    names(vafs) = c("chr","st","ref","var","vaf")
 
-  ##remove MT values
-  vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
+    ##remove MT values
+    vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
 
-  ##remove NA sites
-  vafs = vafs[!(is.na(vafs$vaf)),]
+    ##remove NA sites
+    vafs = vafs[!(is.na(vafs$vaf)),]
 
-  ##add depth
-  vafs = vafs[vafs$vaf > 0,]
-  vafs$depth = round(vafs$var/(vafs$vaf/100))
+    ##remove sites in excludedRegions
+    vafs = excludeRegions(vafs,regionsToExclude);
 
-  ##add cn calls
-  if(is.null(cn)){
-    ##assume all sites are 2x if no cn info
-    vafs$cn = 2;
-  } else {
-    if(cnCallsAreLog2){
-      cn[,4] = (2^(copyNumberCalls[,4]))*2
+    ##add depth
+    vafs = vafs[vafs$vaf > 0,]
+    vafs$depth = round(vafs$var/(vafs$vaf/100))
+
+    ##add cn calls
+    if(is.null(cn)){
+        ##assume all sites are 2x if no cn info
+        vafs$cn = 2;
+    } else {
+        if(cnCallsAreLog2){
+            cn[,4] = (2^(copyNumberCalls[,4]))*2
+        }
+        vafs = addCnToVafs(vafs,cn)
     }
-    vafs = addCnToVafs(vafs,cn)
-  }
-  ##remove sex chromosomes if specified
-  if(!(useSexChrs)){
-    vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
-  }
-  
-  ##remove any sites with less than the minimum depth
-  vafs = vafs[vafs$depth >= minimumDepth,]
-  if(length(vafs$chr) == 0){
-    print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
-    stop()
-  }
-  print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
+    ##remove sex chromosomes if specified
+    if(!(useSexChrs)){
+        vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
+    }
 
-  return(vafs)
+    ##remove any sites with less than the minimum depth
+    vafs = vafs[vafs$depth >= minimumDepth,]
+    if(length(vafs$chr) == 0){
+        print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
+        stop()
+    }
+    print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
+
+    return(vafs)
 
 }
 
@@ -275,25 +306,25 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, useSexChrs, minimumDept
 ## calculate a samples purity from VAF peaks
 ##
 getPurity <- function(peakPos){
-  purity = 0
-  if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
-    purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
-    if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
-      nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
-      ##if the peak is between 50 and 60, assume that it's noise and
-      ##the peak is actually at 50
-      if (nextHighestPeak > 50 && nextHighestPeak < 60 && purity < 60) {
-        purity = 100;
-      }
+    purity = 0
+    if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
+        purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
+        if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
+            nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
+            ##if the peak is between 50 and 60, assume that it's noise and
+            ##the peak is actually at 50
+            if (nextHighestPeak > 50 && nextHighestPeak < 60 && purity < 60) {
+                purity = 100;
+            }
+        }
     }
-  }
-  ##if all of these failed to find a good peak, assume 100% purity
-  if (purity == 0) {
-    print("Unable to make reliable calculation of purity, so assuming 100%")
-    purity = 100;
-  }
-  print(paste("Tumor purity estimated to be ",signif(purity,4),".",sep=""));
-  return(purity)
+    ##if all of these failed to find a good peak, assume 100% purity
+    if (purity == 0) {
+        print("Unable to make reliable calculation of purity, so assuming 100%")
+        purity = 100;
+    }
+    print(paste("Tumor purity estimated to be ",signif(purity,4),".",sep=""));
+    return(purity)
 }
 
 
@@ -302,68 +333,68 @@ getPurity <- function(peakPos){
 ## calculate the 1d kernel density and peaks
 ##
 getDensity <- function(vafs){
-  ##data structure to hold infoemacs sp
-  densities = vector("list",4)
-  factors = vector("list",4)
-  peakPos = vector("list",4)
-  peakHeights = vector("list",4)
-  maxDensity = 0
-  maxDepth=0
+    ##data structure to hold infoemacs sp
+    densities = vector("list",4)
+    factors = vector("list",4)
+    peakPos = vector("list",4)
+    peakHeights = vector("list",4)
+    maxDensity = 0
+    maxDepth=0
 
-  ##default cutoffs are +/- 0.5x cn
-  cnLoThresh = c(0,1.5,2.5,3.5)
-  cnHiThresh = c(1.5,2.5,3.5,4.5)
+    ##default cutoffs are +/- 0.5x cn
+    cnLoThresh = c(0,1.5,2.5,3.5)
+    cnHiThresh = c(1.5,2.5,3.5,4.5)
 
-  for(i in 1:4){
-    ##grab only the variants in this copy number
-    v = vafs[vafs$cn > cnLoThresh[i] & vafs$cn < cnHiThresh[i],]
-    if(length(v[,1]) > 0){
+    for(i in 1:4){
+        ##grab only the variants in this copy number
+        v = vafs[vafs$cn > cnLoThresh[i] & vafs$cn < cnHiThresh[i],]
+        if(length(v[,1]) > 0){
 
-      ##need two points for density calc
-      if(length(v[,1]) > 1){
-        ##calculate the density
-        densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE)
-        factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
-        ##find the peaks
-        p = c(getPeaks(factors[[i]]),FALSE,FALSE)
-        peakPos[[i]] = densities[[i]]$x[p]
-        peakHeights[[i]] = factors[[i]][p]
-        ##store the largest density for use in scaling the plots later
-        if(max(factors[[i]]) > maxDensity){
-          maxDensity = max(factors[[i]])
-        }
+            ##need two points for density calc
+            if(length(v[,1]) > 1){
+                ##calculate the density
+                densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE)
+                factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
+                ##find the peaks
+                p = c(getPeaks(factors[[i]]),FALSE,FALSE)
+                peakPos[[i]] = densities[[i]]$x[p]
+                peakHeights[[i]] = factors[[i]][p]
+                ##store the largest density for use in scaling the plots later
+                if(max(factors[[i]]) > maxDensity){
+                    maxDensity = max(factors[[i]])
+                }
 
-      }
+            }
 
-      ##store the largest depth for use in scaling the plots later
-      if(max(v$depth) > maxDepth){
-        maxDepth = max(v$depth)
-      }
+            ##store the largest depth for use in scaling the plots later
+            if(max(v$depth) > maxDepth){
+                maxDepth = max(v$depth)
+            }
 
-    } #else has a value of NULL
-  }
-  return(list(densities=densities,
-              factors=factors,
-              peakPos=peakPos,
-              peakHeights=peakHeights,
-              maxDensity=maxDensity,
-              maxDepth=maxDepth))
-}
-
-
+        } #else has a value of NULL
+    }
+    return(list(densities=densities,
+        factors=factors,
+        peakPos=peakPos,
+        peakHeights=peakHeights,
+        maxDensity=maxDensity,
+        maxDepth=maxDepth))
+    }
 
 
 
-##--------------------------------------------------------------------
-## find inflection points (peaks)
-##
-getPeaks<-function(series,span=3){
-  z <- embed(series, span);
-  s <- span%/%2;
-  v<- max.col(z) == 1 + s;
-  result <- c(rep(FALSE,s),v);
-  result <- result[1:(length(result)-s)];
-  return(result)
-}
+
+
+    ##--------------------------------------------------------------------
+    ## find inflection points (peaks)
+    ##
+    getPeaks<-function(series,span=3){
+        z <- embed(series, span);
+        s <- span%/%2;
+        v<- max.col(z) == 1 + s;
+        result <- c(rep(FALSE,s),v);
+        result <- result[1:(length(result)-s)];
+        return(result)
+    }
 
 
