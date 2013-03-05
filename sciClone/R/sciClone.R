@@ -238,7 +238,6 @@ excludeRegions <- function(vafs,regionsToExclude){
             next;
         }
         vars_to_exclude = as.matrix(findOverlaps(vars,excludedRegions));
-        print(vars_to_exclude);
         ##if there are variants that fell inside the exclude regions, find them and remove them from vafs
         if(length(vars_to_exclude) > 0){
             for(i in vars_to_exclude[,1]){
