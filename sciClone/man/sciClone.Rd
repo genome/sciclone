@@ -33,9 +33,10 @@
   }
   \item{regionsToExclude}{
     windowed exclusion regions in 3-column format: 1) chromosome 2) window
-    start position 3) window stop position; single nucleotide variants
+    start position 3) window stop position; no header needed, but if one
+    is used, precede the header with "#"; single nucleotide variants
     falling into these windows will not be included in the analysis; use
-    for copy-number-neutral LOH regions, for example
+    this input for LOH regions, for example
   }
   \item{sampleNames}{
     text describing the data or sample (used for plotting purposes)
