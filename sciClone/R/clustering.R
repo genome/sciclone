@@ -33,6 +33,10 @@ clusterVafs <- function(vafMatrix, method="bmm", purities=100, params=NULL, samp
 ## Go from fuzzy probabilities to hard cluster assignments
 ##
 hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
+    print(numPoints);
+    print(numClusters);
+    print(dim(probabilities));
+    print(probabilities);
     assignments <- rep(NA,numPoints);
     for(n in 1:numPoints) {
         max.cluster <- 0
