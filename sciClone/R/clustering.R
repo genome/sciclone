@@ -33,10 +33,12 @@ clusterVafs <- function(vafMatrix, method="bmm", purities=100, params=NULL, samp
 ## Go from fuzzy probabilities to hard cluster assignments
 ##
 hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
+
+    print("Inside Hard Cluster Assignments");
     print(numPoints);
     print(numClusters);
     print(dim(probabilities));
-    print(probabilities);
+
     assignments <- rep(NA,numPoints);
     for(n in 1:numPoints) {
         max.cluster <- 0
@@ -71,7 +73,7 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm(vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
+    bmm.results <- bmm.filter.clusters(vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -197,9 +199,18 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
         apply.overlapping.SEM.condition <- FALSE
         apply.overlapping.std.dev.condition <- TRUE
 
+        print("inside bmm, before apply.min.items.cond if statement");
+        print(paste("apply.min.items = ",apply.min.items.condition));
+        print(paste("N.c =",N.c));
+
+
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             threshold.pts <- 3
 
+            print("inside bmm, AFTER apply.min.items.cond if statement");
+        print(paste("apply.min.items = ",apply.min.items.condition));
+        print(paste("N.c =",N.c));
+            
             clusters <- hardClusterAssignments(N,N.c,r)
 
             num.items.per.cluster <- rep(0, N.c)
@@ -286,7 +297,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
             }
 
             for(k in 1:N.c) {
-                cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))
+                # cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))
             }
 
             indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
@@ -589,7 +600,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
             overlaps <- matrix(data = 1, nrow=N.c, ncol=N.c)
             std.dev.overlap.threshold <- 0
             for(i in 1:N.c){
-                cat("Cluster i = ", i, " overlaps: \n")
+                #cat("Cluster i = ", i, " overlaps: \n")
                 for(i2 in 1:N.c){
                     cat("   ")
                     for(l in 1:num.dimensions){
@@ -603,9 +614,9 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                         } else {
                             overlaps[i,i2] <- 0
                         }
-                        cat(sprintf("f = %.3f ", fraction))
+                        #cat(sprintf("f = %.3f ", fraction))
                     }
-                    cat("\n")
+                    #cat("\n")
                 }
             }
 
