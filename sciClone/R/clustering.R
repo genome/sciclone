@@ -59,6 +59,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ## Do clustering with bmm (binomial mixture model)
 ##
 clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
+    print("inside clusterWithBmm");
     library(bmm)
 
     #replace any values of zero with a very small number to prevent errors
