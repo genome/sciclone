@@ -33,12 +33,6 @@ clusterVafs <- function(vafMatrix, method="bmm", purities=100, params=NULL, samp
 ## Go from fuzzy probabilities to hard cluster assignments
 ##
 hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
-
-    print("Inside Hard Cluster Assignments");
-    print(numPoints);
-    print(numClusters);
-    print(dim(probabilities));
-
     assignments <- rep(NA,numPoints);
     for(n in 1:numPoints) {
         max.cluster <- 0
@@ -59,7 +53,6 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ## Do clustering with bmm (binomial mixture model)
 ##
 clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
-    print("inside clusterWithBmm");
     library(bmm)
 
     #replace any values of zero with a very small number to prevent errors
@@ -74,7 +67,7 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm.filter.clusters(vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
+    bmm.results <- bmm(vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -156,12 +149,12 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
     # overlapping cluster condition to drop any overlapping clusters.
     while(TRUE) {
 
-        print(dim(X))
-        print(N.c)
-        print(N)
-        print(length(c0))
-        print(dim(r))
-        print(length(colSums(r)))
+        #print(dim(X))
+        #print(N.c)
+        #print(N)
+        #print(length(c0))
+        #print(dim(r))
+        #print(length(colSums(r)))
 
         bmm.res <- bmm.fixed.num.components(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold, max.iterations, verbose)
         if(bmm.res$retVal != 0) {
@@ -200,18 +193,9 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
         apply.overlapping.SEM.condition <- FALSE
         apply.overlapping.std.dev.condition <- TRUE
 
-        print("inside bmm, before apply.min.items.cond if statement");
-        print(paste("apply.min.items = ",apply.min.items.condition));
-        print(paste("N.c =",N.c));
-
-
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             threshold.pts <- 3
 
-            print("inside bmm, AFTER apply.min.items.cond if statement");
-        print(paste("apply.min.items = ",apply.min.items.condition));
-        print(paste("N.c =",N.c));
-            
             clusters <- hardClusterAssignments(N,N.c,r)
 
             num.items.per.cluster <- rep(0, N.c)
@@ -245,9 +229,17 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 E.pi.prev <- E.pi.prev[non.zero.indices]
                 c <- c[non.zero.indices]
                 c0 <- c0[non.zero.indices]
+                
+                # debugging for the issue of mismatched matrix size #
+                #print("line 248");
+                #print(dim(r));
+                #print(dim(r[,non.zero.indices]));
+                #print(N);
+                #print(N.c);
+                #print(summary(factor(non.zero.indices)));
 
-                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)
+                r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
@@ -413,19 +405,8 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
 
                 cat("Removing clusters because of SEM condition: \n")
                 print(numeric.indices[non.zero.indices])
-                #HERE TEST
-                clusters <- rep(0, N)
-                for(n in 1:N) {
-                    max.cluster <- 0
-                    max.assignment <- -1
-                    for(k in 1:N.c) {
-                        if ( r[n,k] > max.assignment ) {
-                            max.assignment <- r[n,k]
-                            max.cluster <- k
-                        }
-                    }
-                    clusters[n] <- max.cluster
-                }
+
+                clusters <- hardClusterAssignments(N,N.c,r)
 
                 remove.data <- TRUE
                 if (remove.data == TRUE) {
@@ -443,9 +424,9 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 E.pi.prev <- E.pi.prev[non.zero.indices]
                 c <- c[non.zero.indices]
                 c0 <- c0[non.zero.indices]
-
-                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)
+                
+                r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
@@ -513,7 +494,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                         for(l in 1:num.dimensions){
                             cat(sprintf("%.3f ", std.dev.centers[i,l]))
                         }
-                        cat(sprintf("becuase it overlaps with: "))
+                        cat(sprintf("because it overlaps with: "))
                         for(l in 1:num.dimensions){
                             cat(sprintf("(%.3f, %.3f) ", std.dev.lb[i2,l], std.dev.ub[i2,l]))
                         }
