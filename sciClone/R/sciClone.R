@@ -99,7 +99,7 @@ xs    }
 
   ##-----------------------------------------------
   ##do the clustering
-  if(verbose){print("Doing clustering...")}
+  if(verbose){print("clustering...")}
   
   ## merge the data frames to get a df with vafs and readcounts for each variant in each sample
   vafs.merged = vafs[[1]]
@@ -153,10 +153,15 @@ xs    }
   if(doClustering){
     clust=clusterVafs(vafs.matrix, clusterMethod, purities, clusterParams)
   }
+  if(verbose){print("finished clustering...");}
+
   numClusters=0
   if(!(is.null(clust))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
     #append cluster assignments
+
+    ## This is where the error was occuring on Kai's data Mar 6th ##
+    
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
     #sort by chr, st
@@ -177,7 +182,7 @@ xs    }
   plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2,
          clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
          overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight);
-  plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)
+  if(dimensions>1) {plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)}
 }
 
 
@@ -378,22 +383,22 @@ getDensity <- function(vafs){
         peakHeights=peakHeights,
         maxDensity=maxDensity,
         maxDepth=maxDepth))
-    }
+}
 
 
 
 
 
-    ##--------------------------------------------------------------------
-    ## find inflection points (peaks)
-    ##
-    getPeaks<-function(series,span=3){
-        z <- embed(series, span);
-        s <- span%/%2;
-        v<- max.col(z) == 1 + s;
-        result <- c(rep(FALSE,s),v);
-        result <- result[1:(length(result)-s)];
-        return(result)
-    }
+##--------------------------------------------------------------------
+## find inflection points (peaks)
+##
+getPeaks<-function(series,span=3){
+    z <- embed(series, span);
+    s <- span%/%2;
+    v<- max.col(z) == 1 + s;
+    result <- c(rep(FALSE,s),v);
+    result <- result[1:(length(result)-s)];
+    return(result)
+}
 
 
