@@ -82,6 +82,8 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
     ## find confidence intervals around the means of the clusters
     intervals = bmm.narrowest.mean.interval.about.centers(bmm.results$mu, bmm.results$alpha, bmm.results$nu, bmm.results$beta, 0.68)
     means = intervals$centers
+    print("Cluster Centers:");
+    print(means);
     lower = intervals$lb
     upper = intervals$ub
 
