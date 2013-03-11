@@ -76,6 +76,8 @@ xs    }
 
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
+    print(i)
+    print(head(copyNumberCalls))
     vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth)
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
@@ -283,7 +285,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         vafs$cn = 2;
     } else {
         if(cnCallsAreLog2){
-            cn[,4] = (2^(copyNumberCalls[,4]))*2
+            cn[,4] = (2^(cn[,4]))*2
         }
         vafs = addCnToVafs(vafs,cn)
     }
