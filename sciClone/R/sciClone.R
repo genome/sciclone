@@ -76,8 +76,6 @@ xs    }
 
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
-    print(i)
-    print(head(copyNumberCalls))
     vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth)
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
