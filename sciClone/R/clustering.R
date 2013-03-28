@@ -141,7 +141,7 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     #return a list of info
     return(list(
         cluster.assignments = clusters,
-        cluster.fuzzy.assignments = probs,                
+        cluster.probabilities= probs,                
         cluster.means = means,
         cluster.upper = upper,
         cluster.lower = lower,

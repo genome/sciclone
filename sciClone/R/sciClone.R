@@ -158,7 +158,7 @@ xs    }
   clust=NULL
   if(doClustering){
     if(verbose){print("clustering...")}
-    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, plotIntermediateResults=plotIntermediateResults)
+    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=plotIntermediateResults)
     if(verbose){print("finished clustering full-dimensional data...");}
   }
 
@@ -168,7 +168,7 @@ xs    }
     #append (hard and fuzzy) cluster assignments
 
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
-    vafs.merged.cn2 = cbind(vafs.merged.cn2,fuzzy=clust$cluster.fuzzy.assignments)
+    vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster.prob=clust$cluster.probabilities)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
     #sort by chr, st
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
@@ -212,11 +212,10 @@ xs    }
     write.table(vafs.merged, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
   }
   
-  ##--------------------------------------------------
-  ##set up the plot
-  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, showCopyNumberScatterPlots,
-         clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
-         overlayClusters, overlayIndividualModels, show1DHistogram, onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle);
+  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2,
+         showCopyNumberScatterPlots, clust, highlightSexChrs, positionsToHighlight,
+         highlightsHaveNames, overlayClusters, overlayIndividualModels, show1DHistogram,
+         onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle);
 
   if((showMarginalData == TRUE) & (doClusteringAlongMargins == TRUE)) {
     plot2dWithMargins(vafs.1d, vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, 
@@ -224,7 +223,9 @@ xs    }
                       overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight)
   }
   
-  if(dimensions>1) {plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)}
+  if(dimensions>1) {
+    plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)
+  }
 }
 
 
@@ -308,13 +309,16 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
 
     ##remove MT values
     vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
-
+    if(length(vafs[,1]) == 0){return(vafs)}
+    
     ##remove NA sites
     vafs = vafs[!(is.na(vafs$vaf)),]
-
+    if(length(vafs[,1]) == 0){return(vafs)}
+    
     ##remove sites in excludedRegions
     vafs = excludeRegions(vafs,regionsToExclude);
-
+    if(length(vafs[,1]) == 0){return(vafs)}
+    
     ##add depth
     vafs = vafs[vafs$vaf > 0,]
     vafs$depth = round(vafs$var/(vafs$vaf/100))

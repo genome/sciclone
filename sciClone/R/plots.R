@@ -186,27 +186,7 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
         }
       }
     }
-    
-    ##grab only the vafs for this sample:
-    vafs = getOneSampleVafs(vafs.merged, d, numClusters);
-
-    for(i in cnToPlot){
-      v = vafs[vafs$cn==i,];
-      drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
-      axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
-    }
-  }
-
-
-  if(length(cnToPlot < 2) && highlightsHaveNames){
-    addHighlightLegend(vafsByCn[[i]], positionsToHighlight)
-  } else {
-    if(highlightsHaveNames){
-      print("WARNING: highlighted point naming is only supported when plotOnlyCN2 is TRUE")
-    }
-  }
-
-
+  }    
   ##close the pdf
   devoff <- dev.off();
 }
@@ -348,7 +328,7 @@ plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, density
   xmin <- -5
   xmax <- 105
 
-  tmp.file <- tempfile(paste(outputPrefix,".2d.with.margins.tmp.pdf",sep=""))
+  tmp.file <- tempfile(paste(basename(outputPrefix),".2d.with.margins.tmp.pdf",sep=""))
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
   
   # Create (and store) all possible 1D plots

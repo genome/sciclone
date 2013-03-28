@@ -7,4 +7,4 @@ Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends:IRanges, bmm
-Packaged: 2013-03-27 06:02:57 PM; cmiller
+Packaged: 2013-03-28 11:24:02 AM; cmiller
