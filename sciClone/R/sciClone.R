@@ -8,7 +8,9 @@
 ##
 ## positionsToHighlight is a data frame where the first two columns are - chr, pos
 ##
-sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude = NULL,
+## regions to include is chr,st,sp format
+##
+sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude=NULL,
                      sampleNames, minimumDepth=100, clusterMethod="bmm",clusterParams=NULL,
                      minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
                      overlayClusters=FALSE, overlayIndividualModels=FALSE,
@@ -33,7 +35,9 @@ sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude 
     stop("input param vafs must be either a data frame (for 1-sample clustering), or a list of data frames (for multi-sample clustering)")
   }
 
-  ##some sanity checks on the input data
+  if(missing(sampleNames)){
+    stop("sampleNames is a required parameter")
+  }
   if(dimensions > 1){
     if(length(sampleNames) != dimensions){
       stop(paste("the number of sample names (",length(sampleNames),") does not equal the number of input samples (",dimensions,")",sep=""))
@@ -53,7 +57,14 @@ sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude 
       stop(paste("the number of input purities calls(",length(purities),") does not equal the number of input samples (",dimensions,")\nEither provide a purity for each sample, or set purities to NULL and it will be estimated for you",sep=""))
     }
   }
-
+  
+  if(!is.null(regionsToExclude)){
+    print(regionsToExclude)
+    if(is.data.frame(regionsToExclude)){
+      regionsToExclude = list(regionsToExclude);
+    }
+  }
+  
   if(highlightsHaveNames){
     if(is.null(positionsToHighlight)){
       print("ERROR - if highlightsHaveNames is true, positionsToHighlight must be provided")
@@ -277,27 +288,43 @@ addCnToVafs <- function(vafs,cncalls){
 ## intersect the variants with the regionsToExclude to remove them
 ##
 excludeRegions <- function(vafs,regionsToExclude){
-    library(IRanges);
-    ##for each chromosome, find variants falling inside regions to be excluded
-    for(chr in names(table(regionsToExclude[,1]))){
-        vars = IRanges(start=vafs[vafs$chr==chr,]$st, end=vafs[vafs$chr==chr,]$st);
-        excludedRegions = IRanges(start=regionsToExclude[regionsToExclude[,1]==chr,2], end=regionsToExclude[regionsToExclude[,1]==chr,3]);
-        if( (length(vars) == 0) | (length(excludedRegions) == 0)){
-            next;
-        }
-        vars_to_exclude = as.matrix(findOverlaps(vars,excludedRegions));
-        ##if there are variants that fell inside the exclude regions, find them and remove them from vafs
-        if(length(vars_to_exclude) > 0){
-            for(i in vars_to_exclude[,1]){
-                vpos = which(vafs$chr==chr & vafs$st==start(vars[i,]));
-                if(identical(vpos,integer(0))) { next; }
-                ##remove the variant from vafs
-                vafs = vafs[-vpos,];
-            }
-        }
-    }
 
-    return(vafs)
+  #read in all the excluded regions and combine them into one file;
+  regs = NULL
+  for(i in 1:length(regionsToExclude)){
+    a = regionsToExclude[[i]][,1:3];
+    if(!is.null(regs)){
+      a = rbind(regs,a)
+    } else{
+      regs = a
+    }
+  }
+  #sort the list
+  regs = regs[order(regs[,1], regs[,2]),]
+
+  
+  library(IRanges);
+  ##for each chromosome, find variants falling inside regions to be excluded
+  for(chr in names(table(regs[,1]))){
+    vars = IRanges(start=as.numeric(as.character(vafs[vafs$chr==chr,]$st)),
+      end=as.numeric(as.character(vafs[vafs$chr==chr,]$st)));
+    excludedRegions = IRanges(start=regs[regs[,1]==chr,2], end=regs[regs[,1]==chr,3]);
+    if( (length(vars) == 0) | (length(excludedRegions) == 0)){
+      next;
+    }
+    vars_to_exclude = as.matrix(findOverlaps(vars,excludedRegions));
+    ##if there are variants that fell inside the exclude regions, find them and remove them from vafs
+    if(length(vars_to_exclude) > 0){
+      for(i in vars_to_exclude[,1]){
+        vpos = which(vafs$chr==chr & vafs$st==start(vars[i,]));
+        if(identical(vpos,integer(0))) { next; }
+        ##remove the variant from vafs
+        vafs = vafs[-vpos,];
+      }
+    }
+  }
+  
+  return(vafs)
 } # end excludeRegions
 
 
@@ -314,10 +341,20 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     ##remove NA sites
     vafs = vafs[!(is.na(vafs$vaf)),]
     if(length(vafs[,1]) == 0){return(vafs)}
+
+    ##make sure columns are numeric
+    for(i in 2:5){
+      if(!(is.numeric(vafs[,i]))){
+        print(paste("ERROR: column",names(vafs)[i]," in sample",i,"is not numeric"))
+        stop();
+      }
+    }
     
     ##remove sites in excludedRegions
-    vafs = excludeRegions(vafs,regionsToExclude);
-    if(length(vafs[,1]) == 0){return(vafs)}
+    if(!is.null(regionsToExclude)){
+      vafs = excludeRegions(vafs,regionsToExclude);
+      if(length(vafs[,1]) == 0){return(vafs)}
+    }
     
     ##add depth
     vafs = vafs[vafs$vaf > 0,]

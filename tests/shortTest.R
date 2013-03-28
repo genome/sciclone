@@ -21,21 +21,28 @@ cn3 = cn3[,c(1,2,3,5)]
 #set sample names
 names = c("Sample1","Sample2","Sample3")
 
+#regions to exclude
+reg1 = read.table("data/regionsToExclude")
+
 
 #make an output directory, deleting old results first if they exist
 suppressWarnings(dir.create("results"))
 unlink("results/*", recursive=TRUE)
 
 
-print("")
-print("=========================================================")
-print("Test 1 - single sample - shortTest1")
+cat("\n")
+cat("=========================================================\n")
+cat("Test 1 - single sample - shortTest1\n")
+cat("\n")
+
+
 print("")
 #run one sample
 sciClone(vafs=v1,
          copyNumberCalls=cn1,
          sampleNames=names[1],
          outputPrefix="results/shortTest1",
+         regionsToExclude=reg1,
          overlayClusters=TRUE)
 
 
@@ -50,10 +57,10 @@ sciClone(vafs=v1,
 ##          outputPrefix="test.results/shortTest1",
 ##          overlayClusters=TRUE)
 
-print("")
-print("=========================================================")
-print("Test 2 - two samples - shortTest2")
-print("")
+cat("\n")
+cat("=========================================================\n")
+cat("Test 2 - two samples - shortTest2\n")
+cat("\n")
 #run two samples
 sciClone(vafs=list(v1,v2),
          copyNumberCalls=list(cn1,cn2),
@@ -63,15 +70,16 @@ sciClone(vafs=list(v1,v2),
 
 
 
-print("")
-print("=========================================================")
-print("Test 2 - three samples - shortTest3")
-print("")
+cat("\n")
+cat("=========================================================\n")
+cat("Test 3 - three samples - shortTest3\n")
+cat("\n")
 #run two samples
 sciClone(vafs=list(v1,v2,v3),
          copyNumberCalls=list(cn1,cn2,cn3),
          sampleNames=names,
          outputPrefix="results/shortTest3",
+         regionsToExclude=list(reg1,reg1),
          overlayClusters=TRUE)
 
 
