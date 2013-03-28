@@ -9,15 +9,16 @@
 ##                   of a cluster's vafs in each sample
 ##   cluster.upper = same as cluster.means, but containing upper confidence bounds instead of mean
 ##   cluster.lower = same as cluster.means, but containing lower confidence bounds instead of mean
-##   fit.x = a matrix of size M x P, where P is an arbitrary number of points between 0 and 1
-##           where the model fit was sampled
-##   fit.y = a matrix of the same size as fit.x, containing the corresponding Y value for each X
+##   fit.x = a vector of length P, where P is an arbitrary number of points between 0 and 1
+##           where the model fit was sampled (in each of the M dimensions)
+##   fit.y = a matrix of size MxP, containing the corresponding Y value for each X
 ##           Y values should be scaled between 0 and 1
+##   individual.fits.y = a list of length number_of_clusters, holding the individual fits for each of the models, each represented by an M x P matrix (as for fit.y)
 
-clusterVafs <- function(vafMatrix, method="bmm", purities=100, params=NULL, samples=1){
+clusterVafs <- function(vafs.merged, vafMatrix, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0){
   ##check for suitable method
   if(method == "bmm"){
-   return(clusterWithBmm(vafMatrix, samples=samples))
+   return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults))
   ## }  else if(method != "mixtoolsBinomial"){
   ##   return(clusterWithMixtools(vafs, "Binomial", purity, params));
   ## } else if (method != "mixtoolsNormal"){
@@ -33,12 +34,21 @@ clusterVafs <- function(vafMatrix, method="bmm", purities=100, params=NULL, samp
 ## Go from fuzzy probabilities to hard cluster assignments
 ##
 hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
-    assignments <- rep(NA,numPoints);
+    # Any point that has been removed from the data set will have a
+    # probability of NA and will be given an assignment of 0,
+    # indicating that it is an outlier.
+    assignments <- rep(0,numPoints);
     for(n in 1:numPoints) {
         max.cluster <- 0
         max.assignment <- -1
+        # Prune any points that do not have an appreciable probability
+        # of being in their respective cluster
+        #max.assignment <- 1/numClusters
+        #if(numClusters > 2) {
+        #  max.assignment <- (4/3)/numClusters
+        #}
         for(k in 1:numClusters) {
-            if ( probabilities[n,k] > max.assignment ) {
+            if ( !is.na(probabilities[n,k]) & (probabilities[n,k] > max.assignment) ) {
                 max.assignment <- probabilities[n,k]
                 max.cluster <- k
             }
@@ -52,7 +62,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (binomial mixture model)
 ##
-clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
+clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0) {
     library(bmm)
 
     #replace any values of zero with a very small number to prevent errors
@@ -67,18 +77,18 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm(vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
+    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0, plotIntermediateResults=plotIntermediateResults)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
     }
 
     ##get the assignment of each point to a cluster
-    probs = exp(1)^bmm.results$ln.rho
+    probs = bmm.results$r
     numPoints = length(probs[,1])
     numClusters = length(probs[1,])
     clusters = hardClusterAssignments(numPoints,numClusters,probs);
-
+    
     ## find confidence intervals around the means of the clusters
     intervals = bmm.narrowest.mean.interval.about.centers(bmm.results$mu, bmm.results$alpha, bmm.results$nu, bmm.results$beta, 0.68)
     means = intervals$centers
@@ -87,6 +97,9 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
     lower = intervals$lb
     upper = intervals$ub
 
+    print("Outliers:")
+    print(bmm.results$outliers)
+    
 
     ## Generate (x,y) values of the posterior predictive density
     n <- 1000
@@ -100,6 +113,10 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
     y = t(matrix(rep(y,dim(vafs)[2]),ncol=dim(vafs)[2]))
 
     ##for each dimension
+    yms = list()
+    for (k in 1:numClusters) {
+      yms[[k]] <- y
+    }
     for(dim in 1:dim(vafs)[2]){
         ym <- matrix(data=0, nrow=numClusters, ncol=n)
         num.iterations <- 100
@@ -107,11 +124,15 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
             for (i in 1:n) {
                 ## Evaluate posterior probability at x.
                 ym[k,i] <- bmm.component.posterior.predictive.density(x[i], bmm.results$mu[dim,k], bmm.results$alpha[dim,k], bmm.results$nu[dim,k], bmm.results$beta[dim,k], bmm.results$E.pi[k], num.samples = num.iterations)
+                yms[[k]][dim,i] <- ym[k,i]
                 y[dim,i] <- y[dim,i] + ym[k,i]
             }
         }
         ##scale yvals between 0 and 1
-        y[dim,] = y[dim,]/max(y[dim,])
+        #for (k in 1:numClusters) {
+        #  yms[[k]][dim,] <- yms[[k]][dim,]/max(yms[[k]][dim,])
+        #}
+        #y[dim,] = y[dim,]/max(y[dim,])
     }
 
     ##scale xvals between 1 and 100
@@ -120,18 +141,20 @@ clusterWithBmm <- function(vafs, initialClusters=10, samples=1) {
     #return a list of info
     return(list(
         cluster.assignments = clusters,
+        cluster.fuzzy.assignments = probs,                
         cluster.means = means,
         cluster.upper = upper,
         cluster.lower = lower,
         fit.x = x,
-        fit.y = y))
+        fit.y = y,
+        individual.fits.y = yms))
 }
 
 
 ## ##--------------------------------------------------------------------------
 ## ## The beta distribution clustering + filtering method
 ## ##
-bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0)
+bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0, plotIntermediateResults = 0)
 {
 
     total.iterations <- 0
@@ -146,7 +169,40 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
     E.pi.prev <- rep(0, N.c)
 
     width <- as.real(erf(1.5/sqrt(2)))
+    # width <- as.real(erf(1/sqrt(2)))
 
+    if(plotIntermediateResults > 0) {
+      probs <- r
+      numPoints = length(probs[,1])
+      numClusters = length(probs[1,])
+      clusters = hardClusterAssignments(numPoints,numClusters,probs);
+      vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
+      outputPrefix <- paste("tumor", total.iterations, sep="")
+      sampleNames <- c("Tumor", "Relapse")
+      positionsToHighlight <- NULL
+      highlightsHaveNames <- FALSE
+      overlayClusters <- TRUE
+
+      ellipse.width <- as.real(erf(1/sqrt(2)))
+      
+      # Calculate standard error of the means
+      SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+      SEM.centers <- 100 * t(SEM.res$centers)
+      SEMs.lb <- 100 * t(SEM.res$lb)
+      SEMs.ub <- 100 * t(SEM.res$ub)
+
+      # Calculate standard errors
+      std.dev.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+      std.dev.centers <- 100 * t(std.dev.res$centers)
+      std.dev.lb <- 100 * t(std.dev.res$lb)
+      std.dev.ub <- 100 * t(std.dev.res$ub)
+
+      ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
+
+      plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
+      
+    }
+    
     # Outer while loop: following convergence of inner loop, apply
     # overlapping cluster condition to drop any overlapping clusters.
     while(TRUE) {
@@ -158,8 +214,12 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
         #print(dim(r))
         #print(length(colSums(r)))
 
+        if(plotIntermediateResults > 0) {
+          max.iterations <- plotIntermediateResults
+        }
+      
         bmm.res <- bmm.fixed.num.components(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold, max.iterations, verbose)
-        if(bmm.res$retVal != 0) {
+        if((bmm.res$retVal != 0) & (plotIntermediateResults == 0)) {
             cat("Failed to converge!\n")
             q(status=-1)
         }
@@ -173,9 +233,6 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
         vbar <- bmm.res$vbar
         r <- bmm.res$r
 
-        print(dim(r))
-        print(length(colSums(r)))
-
         total.iterations <- total.iterations + bmm.res$num.iterations
 
         ln.rho <- bmm.res$ln.rho
@@ -185,15 +242,57 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
         E.quadratic.u <- bmm.res$E.quadratic.u
         E.quadratic.v <- bmm.res$E.quadratic.v
 
+        if(plotIntermediateResults > 0) {
+          probs <- r
+          numPoints = length(probs[,1])
+          numClusters = length(probs[1,])
+          clusters = hardClusterAssignments(numPoints,numClusters,probs);
+          vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
+          outputPrefix <- paste("tumor", total.iterations, sep="")
+          sampleNames <- c("Tumor", "Relapse")
+          positionsToHighlight <- NULL
+          highlightsHaveNames <- FALSE
+          overlayClusters <- TRUE
+
+          ellipse.width <- as.real(erf(1/sqrt(2)))
+      
+          # Calculate standard error of the means
+          SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+          SEM.centers <- 100 * t(SEM.res$centers)
+          SEMs.lb <- 100 * t(SEM.res$lb)
+          SEMs.ub <- 100 * t(SEM.res$ub)
+
+          # Calculate standard errors
+          std.dev.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+          std.dev.centers <- 100 * t(std.dev.res$centers)
+          std.dev.lb <- 100 * t(std.dev.res$lb)
+          std.dev.ub <- 100 * t(std.dev.res$ub)
+
+          ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
+
+          plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
+      
+        }
+    
+        if((bmm.res$retVal != 0) & (plotIntermediateResults > 0)) {
+          next
+        }
+
+        
         do.inner.iteration <- FALSE
 
         # Remove any small clusters
 
         apply.min.items.condition <- TRUE
-        apply.uncertainty.condition <- FALSE
+        apply.uncertainty.self.overlap.condition <- FALSE
         apply.large.SEM.condition <- FALSE
         apply.overlapping.SEM.condition <- FALSE
         apply.overlapping.std.dev.condition <- TRUE
+
+        # Changes on Mar 25, 2013
+        apply.overlapping.std.dev.condition <- FALSE
+        apply.uncertainty.self.overlap.condition <- TRUE        
+        apply.uncertainty.overlap.condition <- TRUE        
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             threshold.pts <- 3
@@ -222,9 +321,14 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                     outliers <- rbind(outliers, new.outliers)
                 }
 
-                X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
+                # To remove data from the data set, set its entries to NA
+                # X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
+                # N <- dim(X)[1]
+
+                X[!(clusters %in% numeric.indices),] <- NA
+                # N <- dim(X)[1] - dim(outliers)[1]
+                
                 colnames(X) <- x.colnames
-                N <- dim(X)[1]
 
                 E.pi <- E.pi[non.zero.indices]
                 N.c <- length(E.pi)
@@ -240,10 +344,20 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 #print(N.c);
                 #print(summary(factor(non.zero.indices)));
 
-                r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                # Don't resize r and ln.rho matrices to accomodate removed
+                # outliers, instead we will have set their rows to NA above.
+                # r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                # ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                # But do drop any columns corresponding to dropped clusters
+                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
+                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)                
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
+                    if(any(is.na(ln.rho[n,]))) {
+                      r[n,] <- rep(NA, N.c)
+                      next
+                    }
+                  
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
                     for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
                 }
@@ -269,16 +383,17 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
             }
         } # End apply.min.items.condition
 
-        if((apply.uncertainty.condition == TRUE) & (N.c > 1)) {
+        if((apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
             overlaps <- rep(0, N.c)
             ones <- rep(1, N)
             indices.to.keep.boolean <- rep(TRUE, N.c)
             # Just drop min overlap
             for(k in 1:N.c) {
-                overlaps[k] <- sum(r[,k] * r[,k]) / sum(ones * r[,k])
+                overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
             }
 
+            overlap.threshold <- 0.8
             if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
                 for(k in 1:N.c) {
                     # Small clusters will have undefined overlaps, just skip.
@@ -292,7 +407,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
             }
 
             for(k in 1:N.c) {
-                # cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))
+                cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", k, E.pi[k], overlaps[k]))
             }
 
             indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
@@ -306,7 +421,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                     indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
                     for(i in 1:length(indices.to.drop)) {
                         index <- indices.to.drop[i] 
-                        cat("1. Dropping cluster with center: ")
+                        cat("Self-overlap condition: Dropping cluster with center: ")
                         for(l in 1:num.dimensions) {
                             cat(sprintf("%.3f ", means[l, index]))
                         }
@@ -325,6 +440,11 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
+                    if(any(is.na(ln.rho[n,]))) {
+                      r[n,] <- rep(NA, N.c)
+                      next
+                    }
+
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
                     for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
                 }
@@ -349,7 +469,7 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
 
 
             }
-        } # End apply.uncertainty.condition
+        } # End apply.uncertainty.self.overlap.condition
 
         if((apply.large.SEM.condition == TRUE) & (N.c > 1)) {
 
@@ -417,20 +537,35 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                     outliers <- rbind(outliers, new.outliers)
                 }
 
-                X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
+                # To remove data from the data set, set its entries to NA
+                # X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
+                # N <- dim(X)[1]
+                X[!(clusters %in% numeric.indices),] <- NA
+                # N <- dim(X)[1] - dim(outliers)[1]
+                
                 colnames(X) <- x.colnames
-                N <- dim(X)[1]
 
                 E.pi <- E.pi[non.zero.indices]
                 N.c <- length(E.pi)
                 E.pi.prev <- E.pi.prev[non.zero.indices]
                 c <- c[non.zero.indices]
                 c0 <- c0[non.zero.indices]
+
+                # Don't resize r and ln.rho matrices to accomodate removed
+                # outliers, instead we will have set their rows to NA above.
+                # r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                # ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
+                # But do drop any columns corresponding to dropped clusters
+                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
+                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)                
                 
-                r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
+                    if(any(is.na(ln.rho[n,]))) {
+                      r[n,] <- rep(NA, N.c)
+                      next
+                    }
+                  
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
                     for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
                 }
@@ -539,6 +674,11 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
+                    if(any(is.na(ln.rho[n,]))) {
+                      r[n,] <- rep(NA, N.c)
+                      next
+                    }
+                  
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
                     for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
                 }
@@ -652,6 +792,11 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
                 ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
                 # Need to renormalize r--do it gently.
                 for(n in 1:N) {
+                    if(any(is.na(ln.rho[n,]))) {
+                      r[n,] <- rep(NA, N.c)
+                      next
+                    }
+                  
                     row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
                     for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
                 }
@@ -683,6 +828,41 @@ bmm.filter.clusters <- function(X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, 
 
     } # End outer while(TRUE)
 
+    # Calculate standard error of the means
+    SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, width)
+    SEM.centers <- t(SEM.res$centers)
+    SEMs.lb <- t(SEM.res$lb)
+    SEMs.ub <- t(SEM.res$ub)
+
+    # Calculate standard errors
+    std.dev.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, width)
+    std.dev.centers <- t(std.dev.res$centers)
+    std.dev.lb <- t(std.dev.res$lb)
+    std.dev.ub <- t(std.dev.res$ub)
+
+    for(k in 1:N.c) {
+        cat(sprintf("Cluster %d pi = %.3f center =", k, E.pi[k]))
+        for(d in 1:num.dimensions) {
+            center <- SEM.centers[k,d]
+            cat(sprintf(" %.3f", center))
+        }
+        cat(" SEM =")
+        for(d in 1:num.dimensions) {
+            lb <- SEMs.lb[k,d]
+            ub <- SEMs.ub[k,d]            
+            cat(sprintf(" (%.3f, %.3f)", lb, ub))
+        }
+        cat(" sd =")
+        for(d in 1:num.dimensions) {
+            lb <- std.dev.lb[k,d]
+            ub <- std.dev.ub[k,d]            
+            cat(sprintf(" (%.3f, %.3f)", lb, ub))
+        }
+        cat("\n")
+    }
+
+    cat(sprintf('total iterations = %d\n', total.iterations))
+    
     retList <- list("retVal" = 0, "mu" = mu, "alpha" = alpha, "nu" = nu, "beta" = beta, "c" = c, "r" = r, "num.iterations" = total.iterations, "ln.rho" = ln.rho, "E.lnu" = E.lnu, "E.lnv" = E.lnv, "E.lnpi" = E.lnpi, "E.pi" = E.pi, "E.quadratic.u" = E.quadratic.u, "E.quadratic.v" = E.quadratic.v, "ubar" = ubar, "vbar" = vbar, "outliers" = outliers)
 
     return(retList)

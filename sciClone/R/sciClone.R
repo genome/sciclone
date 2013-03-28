@@ -8,14 +8,15 @@
 ##
 ## positionsToHighlight is a data frame where the first two columns are - chr, pos
 ##
-sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude = NULL, sampleNames,
-                     minimumDepth=100, clusteredDataOutputFile=NULL,
-                     clusterMethod="bmm",clusterParams=NULL,
+sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude = NULL,
+                     sampleNames, minimumDepth=100, clusterMethod="bmm",clusterParams=NULL,
                      minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
-                     overlayClusters=FALSE, plotOnlyCN2=FALSE, positionsToHighlight=NULL,
+                     overlayClusters=FALSE, overlayIndividualModels=FALSE,
+                     show1DHistogram=FALSE, plotOnlyCN2=FALSE,
+                     showCopyNumberScatterPlots=TRUE, positionsToHighlight=NULL,
                      purities=NULL, highlightSexChrs=TRUE, cnCallsAreLog2=FALSE,
-                     useSexChrs=TRUE, highlightsHaveNames=FALSE, doClustering=TRUE, verbose=TRUE){
-
+                     useSexChrs=TRUE, highlightsHaveNames=FALSE, doClustering=TRUE,
+                     showTitle=TRUE, plotIntermediateResults=0, verbose=TRUE){
 
   if(verbose){print("checking input data...")}
 
@@ -99,8 +100,7 @@ xs    }
 
   ##-----------------------------------------------
   ##do the clustering
-  if(verbose){print("clustering...")}
-  
+
   ## merge the data frames to get a df with vafs and readcounts for each variant in each sample
   vafs.merged = vafs[[1]]
   if(dimensions > 1){
@@ -142,8 +142,14 @@ xs    }
       cnNeutral[i] = 0
     }
   }
+  
   vafs.merged.cn2 = vafs.merged[as.logical(cnNeutral),]
 
+  nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
+
+  vafs.merged.orig <- vafs.merged
+  vafs.merged.cn2.orig <- vafs.merged.cn2
+  
   #convert to a matrix to feed into clustering
   vafs.matrix = as.matrix(vafs.merged.cn2[,vafcols])
   #convert vafs to be between 0 and 1
@@ -151,27 +157,56 @@ xs    }
 
   clust=NULL
   if(doClustering){
-    clust=clusterVafs(vafs.matrix, clusterMethod, purities, clusterParams)
+    if(verbose){print("clustering...")}
+    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, plotIntermediateResults=plotIntermediateResults)
+    if(verbose){print("finished clustering full-dimensional data...");}
   }
-  if(verbose){print("finished clustering...");}
 
   numClusters=0
   if(!(is.null(clust))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
-    #append cluster assignments
+    #append (hard and fuzzy) cluster assignments
 
-    ## This is where the error was occuring on Kai's data Mar 6th ##
-    
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
+    vafs.merged.cn2 = cbind(vafs.merged.cn2,fuzzy=clust$cluster.fuzzy.assignments)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
     #sort by chr, st
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
     print(paste("found",numClusters,"clusters"))
   }
 
+  # Show a 1D projection of the data along the axes for multidimensional data.
+  showMarginalData <- TRUE
+  #showMarginalData <- FALSE
+  if(dimensions == 1) { showMarginalData <- FALSE }
+  # Cluster the 1D data shown along the margins (as opposed to showing the
+  # 1D projection of the multidimensional clustering result)
+  doClusteringAlongMargins <- TRUE
+  if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
+  if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
+  if(showMarginalData == FALSE) { doClusteringAlongMargins <- FALSE }
 
+  # Perform 1D clustering of each dimension independently.
+  marginalClust = list()
+  vafs.1d = list()
+  if(doClusteringAlongMargins == TRUE){
+    for(i in 1:dimensions){
+      marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], clusterMethod, purities[i], clusterParams, FALSE)
+      if(verbose){print(paste("finished clustering", sampleNames[i], "..."))}
+      numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
+      print(paste("found",numClusters,"clusters"))
+
+      vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
+      vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)), by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
+      #sort by chr, st
+      vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
+      vafs.1d[[i]] = vafs.1d.merged
+    }
+  }
+  
   ##--------------------------------------------------------
   ##output and plots
+  clusteredDataOutputFile=paste(outputPrefix,".clusters",sep="");
   if(!(is.null(clust)) & !(is.null(clusteredDataOutputFile))){
     ##TODO - order these first    
     write.table(vafs.merged, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
@@ -179,9 +214,16 @@ xs    }
   
   ##--------------------------------------------------
   ##set up the plot
-  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2,
+  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, showCopyNumberScatterPlots,
          clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
-         overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight);
+         overlayClusters, overlayIndividualModels, show1DHistogram, onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle);
+
+  if((showMarginalData == TRUE) & (doClusteringAlongMargins == TRUE)) {
+    plot2dWithMargins(vafs.1d, vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, 
+                      marginalClust, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
+                      overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight)
+  }
+  
   if(dimensions>1) {plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)}
 }
 

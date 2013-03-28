@@ -2,9 +2,14 @@
 ##---------------------------------------------------------------------------------
 ## Create the one dimensional plot with kde and scatter
 ##
-plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight){
+plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, showCopyNumberScatterPlots, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, overlayIndividualModels, show1DHistogram, onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle){
+
   pdf(file=paste(outputPrefix,".1d.pdf",sep=""), width=3.3, height=7.5, bg="white");
-  numClusters = max(clust$cluster.assignments)
+
+  numClusters = 0
+  if(!is.null(clust)) {
+    numClusters = max(clust$cluster.assignments)
+  }
 
   ##one plot for each sample
   for(d in 1:dimensions){
@@ -21,14 +26,15 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
 
 
     ##draw the density plot
-    scalingFactor = 25/maxDensity;
-    plot.default(x=c(1:10),y=c(1:10),ylim=c(0,28),xlim=c(0,100),axes=FALSE, ann=FALSE,col="#00000000",xaxs="i",yaxs="i");
+    scalingFactor = 1/maxDensity;
+    plot.default(x=c(1:10),y=c(1:10),ylim=c(0,1.1), xlim=c(0,100), axes=FALSE,
+                 ann=FALSE, col="#00000000", xaxs="i", yaxs="i");
 
     ##plot bg color
-    rect(0, 0, 100, 28, col = "#00000011",border=NA);
+    rect(0, 0, 100, 1.1, col = "#00000011",border=NA);
+    axis(side=2,at=c(0,1),labels=c(0, ""), las=1, cex.axis=0.6, hadj=0.6,
+         lwd=0.5, lwd.ticks=0.5, tck=-0.01);
 
-    axis(side=2,at=c(0,25),labels=c(0,sprintf("%.3f", maxDensity)),las=1,
-         cex.axis=0.6,hadj=0.6,lwd=0.5,lwd.ticks=0.5,tck=-0.01);
 
     ##are we plotting everything or just CN2?
     cnToPlot = c();
@@ -38,11 +44,14 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
       cnToPlot = 1:4
     }
 
+    ##grab only the vafs for this sample:
+    vafs = getOneSampleVafs(vafs.merged, d, numClusters);
+
     ##colors for different copy numbers
     colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
 
     for(i in cnToPlot){
-      if(!(is.null(densities[[i]]))){
+      if(!(is.null(densities[[i]])) & (!show1DHistogram | (i!= 2))){
         ##density lines
         lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
         ##peak labels
@@ -58,46 +67,126 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
                labels=signif(peakPos[[i]][ppos],3),
                cex=0.7, srt=0, col=colors[[i]]);
         }
+      } else if(show1DHistogram & (i == 2)) {
+
+        ## Only show histogram for copy number = 2
+        v = vafs[vafs$cn==2,];
+
+        frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
+        bin.width <- 2.5
+        num.breaks <- ceiling(100/bin.width) + 1
+        breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
+        h <- hist(v$vaf, breaks=breaks, plot=FALSE)
+        ## Rescale the intensity so it has max value y = 1.
+        h$density <- h$density / max(h$density)
+        plot(h, add=TRUE, freq=FALSE, col="white", border="black")
       }
     }
 
 
-    ##if we have X/Y vals from the clustering alg, add them
-    if(!(is.null(clust))){
-      points(clust$fit.x, clust$fit.y[d,]*25, type="l",col="grey50")
-    }
 
+    ##if we have X/Y vals from the clustering alg, add them
+    ## If we overlay the model, show it in a different style
+    ## style 4 = dot dashed
+    ## style 1 = line
+    model.style <- 4
+    model.style <- 1
+    model.width <- 0.25
+    ## Plot the individual models with dotted lines (3) or dashed (2)
+    individual.model.style <- 3
+    individual.model.width <- 1
+
+    if(!(is.null(clust))){
+      maxFitDensity <- max(clust$fit.y[d,])
+      #points(clust$fit.x, clust$fit.y[d,]*25, type="l",col="grey50")
+      lines(clust$fit.x, clust$fit.y[d,]/maxFitDensity, type="l",col="grey50",lty=model.style, lwd=model.width)
+      if(overlayIndividualModels==TRUE) {
+        for(i in 1:numClusters) {
+          lines(clust$fit.x, clust$individual.fits.y[[i]][d,]/maxFitDensity,
+                type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width)
+        }
+      }
+    }
+    
     ##legend
-    leg = c("1 Copy","2 Copies","3 Copies","4 Copies")
     lcol=colors
-    if( length(cnToPlot)== 1 ){
-      leg=c("2 Copies")
-      lcol=colors[2]
+    lty = c(1,1,1,1)
+    lwd = c(2,2,2,2)
+    pchs = c(NA, NA, NA, NA)
+    pt.bgs = lcol
+    leg = c("1 Copy", "2 Copies", "3 Copies", "4 Copies")
+    if( (length(cnToPlot)== 1) ) {
+      if(show1DHistogram == FALSE) {
+        lcol=colors[2]
+        lty = c(1)
+        lwd = c(2)
+        pchs = c(NA)
+        pt.bgs = lcol
+        leg = c("2 Copies")
+      } else {
+        lcol="black"
+        lty = c(0)
+        lwd = c(0)
+        pchs = c(22)
+        pt.bgs = "white"
+        leg = c("2 Copies")
+      }
     }
     if(!(is.null(clust))){
-      leg = c(leg,"Model Fit")
+      leg = c(leg,"Model Fit")      
       lcol = c(lcol, "grey50")
+      lty = c(lty, model.style)
+      lwd = c(lwd, model.width)
+      pt.bgs = c(pt.bgs, "grey50")
+      pchs = c(pchs, NA)
+      if(overlayIndividualModels==TRUE) {
+        leg = c(leg,"Component Fits")      
+        lcol = c(lcol, "grey50")        
+        lty = c(lty, individual.model.style)
+        lwd = c(lwd, 2)
+        pt.bgs = c(pt.bgs, "grey50")
+        pchs = c(pchs, NA)        
+      }
     }
-    legend(x="topright", lwd=2, legend=leg, col=lcol, bty="n", cex=0.6, y.intersp=1.25);
+    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
 
 
     axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
     mtext("Tumor Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
-    mtext("Kernel Density",side=2,cex=0.5,padj=-4.2);
+    mtext("Density (a.u.)",side=2,cex=0.5,padj=-4.2);
+    
 
     ##add a title to the plot
-    title=""
-    if(is.null(sampleNames[d])){
-      title="Clonality Plot"
-    } else {
-      title=paste(sampleNames[d],"Clonality Plot",sep=" ");
+    if(showTitle){
+      title=""
+      if(is.null(sampleNames[d])){
+        title="Clonality Plot"
+      } else {
+        title=paste(sampleNames[d],"Clonality Plot",sep=" ");
+      }
+      mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
     }
-    mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
-
 
     ##-----------------------------------------------------
-    ##create the scatterplots of vaf vs density
+    ##create the scatterplots of vaf vs copy number
 
+    if(showCopyNumberScatterPlots) {
+      for(i in cnToPlot){
+        v = vafs[vafs$cn==i,];
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
+        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
+
+
+        if(length(cnToPlot) < 2 & highlightsHaveNames){
+          addHighlightLegend(v, positionsToHighlight)
+        } else {
+          if(highlightsHaveNames){
+            print("WARNING: highlighted point naming is only supported when plotOnlyCN2 is TRUE")
+          }
+        }
+      }
+    }
+    
     ##grab only the vafs for this sample:
     vafs = getOneSampleVafs(vafs.merged, d, numClusters);
 
@@ -243,12 +332,194 @@ addHighlightLegend <- function(data, positionsToHighlight){
 }
 
 
+##---------------------------------------------------------------------
+## create the two dimensional plot with scatter annotated with
+## clustering results and 1D plots along margins, this time using
+## ggplot2
+
+plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, marginalClust, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight){
+
+  library(grid)
+  library(ggplot2)
+
+  plots.1d.list <- list()
+  res.1d.max.densities <- list()
+  
+  xmin <- -5
+  xmax <- 105
+
+  tmp.file <- tempfile(paste(outputPrefix,".2d.with.margins.tmp.pdf",sep=""))
+  pdf(file=tmp.file, width=7.2, height=6, bg="white")
+  
+  # Create (and store) all possible 1D plots
+  for(d in 1:dimensions){
+    # Overlay the histogram of the data on the model fit.
+    #ylab <- "\nDensity\n"
+    ylab <- "Density (a.u.)"
+
+    title <- ""
+
+    # Set max posterior density to max of splinefun
+    limits <- data.frame(x=c(min(marginalClust[[d]]$fit.x), max(marginalClust[[d]]$fit.x)))
+    f <- splinefun(marginalClust[[d]]$fit.x, marginalClust[[d]]$fit.y[1,,drop=FALSE])
+    max.posterior.density <- max(unlist(lapply(seq(from=limits$x[1], to=limits$x[2], by=10^-3), f)))
+
+    # xlab <- paste("\n", sampleNames[d], "\n", sep="")
+    xlab <- paste(sampleNames[d], " VAF", sep="")
+
+    numClusters = 0
+    if(!is.null(vafs.1d.merged[[d]]$cluster)) {
+      numClusters = max(vafs.1d.merged[[d]]$cluster, na.rm=T)
+    }
+    
+    vafs = getOneSampleVafs(vafs.1d.merged[[d]], d, numClusters)
+
+    # Only show copy number = 2
+    v = vafs[vafs$cn==2,];
+
+    frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
+
+    g <- ggplot(data = frequencies, aes(x)) + ggtitle(title) + xlab(xlab) + ylab(ylab)
+
+    # g <- g + theme_bw() + theme(axis.line = element_line(colour = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
+
+    g <- g + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())    
+
+    g <- g + theme(plot.margin = unit(c(0,0,0,0), "cm"))
+    
+    bin.width <- 2.5
+    num.breaks <- ceiling(100/bin.width) + 1
+    breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
+
+    g <- g + geom_histogram(data = frequencies, mapping=aes(x, y=..ncount..*100), fill="white", colour="black", breaks=breaks)
+
+    # Need to "print" the graph in order to see its maximum y value
+    # NB:  this is redundant at this point, given that I scale the
+    # histogram to have height 100 above.  i.e., max.density will be 100.
+    tmp <- print(g)
+    max.density <- max(tmp[["data"]][[1]]$ymax)
+    res.1d.max.densities[[d]] <- max.density
+
+    hline <- data.frame(x = c(0,100), y=c(-5,-5))
+    g <- g + geom_line(data = hline, aes(x,y))
+
+    #vline <- data.frame(y = c(0,max.density * 1.1), x=c(-5,-5))
+    vline <- data.frame(y = c(0,100), x=c(-5,-5))
+    g <- g + geom_line(data = vline, aes(x,y))      
+
+    scale <- max.density / max.posterior.density
+
+    f <- splinefun(marginalClust[[d]]$fit.x, scale*marginalClust[[d]]$fit.y[1,,drop=FALSE])
+
+    g <- g + stat_function(data = limits, fun=f, mapping=aes(x))
+
+    g <- g + coord_cartesian(ylim=c(xmin, max.density*1.1), xlim=c(xmin,xmax))
+
+    plots.1d.list[[d]] <- g
+  }
+
+  devoff = dev.off()
+  unlink(tmp.file)
+  
+  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
+
+  pdf(file=paste(outputPrefix,".2d.with.margins.pdf",sep=""), width=7.2, height=6, bg="white")
+
+  ##create a 2d plot for each pairwise combination of samples
+  for(d1 in 1:(dimensions-1)){
+    for(d2 in d1:dimensions){
+      if(d1==d2){
+        next
+      }
+
+      xlab <- sampleNames[d1]
+      xlab <- gsub("\\.", " ", xlab)
+      #xlab <- paste("\n", xlab, "\n", sep="")
+      xlab <- paste(xlab, " VAF", sep="")
+
+      ylab <- sampleNames[d2]
+      ylab <- gsub("\\.", " ", ylab)
+      #ylab <- paste("\n", ylab, "\n", sep="")
+      ylab <- paste(ylab, " VAF", sep="")
+
+      numClusters = 0
+      if(!is.null(vafs.merged$cluster)) {
+        numClusters = max(vafs.merged$cluster, na.rm=T)
+      }
+      
+      vafs1 = getOneSampleVafs(vafs.merged, d1, numClusters);
+      vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
+      
+      ##get only cn2 points
+      vafs1 = vafs1[vafs1$cn==2,]
+      vafs2 = vafs2[vafs2$cn==2,]
+
+      v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
+      clusters <- v$cluster
+      
+      frequencies <- data.frame(x=v$vaf.1, y=v$vaf.2, row.names=NULL, stringsAsFactors=NULL)
+
+      title <- ""
+
+      g <- ggplot(data = frequencies, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies, aes(x=x, y=y), shape=clusters, colour=clusters)
+
+      # g <- g + theme_bw() + theme(axis.line = element_line(colour = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
+
+      g <- g + theme_bw() + theme(panel.border = element_blank())
+
+      g <- g + theme(plot.margin = unit(c(0,0,0,0), "cm"))
+      
+      hline <- data.frame(x = c(0,100), y=c(-5,-5))
+      g <- g + geom_line(data = hline, aes(x,y))
+
+      vline <- data.frame(y = c(0,100), x=c(-5,-5))
+      g <- g + geom_line(data = vline, aes(x,y))      
+
+      g <- g + coord_cartesian(xlim=c(xmin, xmax), ylim=c(xmin, xmax))
+
+      plot.2d <- g
+
+      plot.1d.1 <- plots.1d.list[[d1]]
+      plot.1d.2 <- plots.1d.list[[d2]]
+      
+      grid.newpage()
+
+      pushViewport(viewport(layout = grid.layout(2, 2)))
+
+      text.size <- 10
+      
+      vp <- vplayout(1,1)
+      plot.2d <- plot.2d + theme(text = element_text(size = text.size))
+      print(plot.2d, vp=vp)
+
+      vp <- vplayout(1,2)
+      plot.1d.2 <- plot.1d.2 + theme(text = element_text(size = text.size))
+      plot.1d.2 <- plot.1d.2 + coord_flip(ylim = c(xmin, res.1d.max.densities[[d2]]*1.1), xlim = c(xmin, xmax))
+      print(plot.1d.2, vp=vp)
+
+      vp <- vplayout(2,1)
+      plot.1d.1 <- plot.1d.1 + theme(text = element_text(size = text.size))
+      print(plot.1d.1, vp=vp)
+    }
+  }
+  devoff = dev.off()
+}
+
+
+
+##---------------------------------------------------------------------
+## create the two dimensional plot with scatter annotated with
+## clustering results and 1D plots along margins
 ##---------------------------------------------------------------------------------
-## Create the one dimensional plot with kde and scatter
+## Create two dimensional plot with scatter annotated with clustering result
 ##
-plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters){
+plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata = list()){
   pdf(file=paste(outputPrefix,".2d.pdf",sep=""), width=7.2, height=6, bg="white")
-  numClusters = max(vafs.merged$cluster, na.rm=T)
+  numClusters = 0
+  if(!is.null(vafs.merged$cluster)) {
+    numClusters = max(vafs.merged$cluster, na.rm=T)
+  }
+  library(plotrix)
 
   
   ##create a 2d plot for each pairwise combination of samples
@@ -264,9 +535,15 @@ plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positions
       ##get only cn2 points
       vafs1 = vafs1[vafs1$cn==2,]
       vafs2 = vafs2[vafs2$cn==2,]
+      #CN DEFN      
+      #vafs1 = vafs1[vafs1$cn>=1.5 & vafs1$cn<=2.5,]
+      #vafs2 = vafs2[vafs2$cn>=1.5 & vafs2$cn<=2.5,]      
 
-      v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
-
+      if(!is.null(vafs.merged$cluster)) {            
+        v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
+      } else {
+        v = merge(vafs1,vafs2,by.x=c(1,2), by.y=c(1,2),suffixes=c(".1",".2"))
+      }
       cols = getClusterColors(numClusters)
       #create the plot
       #layout(matrix(c(1,2),1,2, byrow=TRUE), widths=c(4,1), heights=c(1,1))
@@ -281,16 +558,44 @@ plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positions
 
       axis(side=1,at=seq(0,100,20),labels=seq(0,100,20))
 
-      
-      for(i in 1:numClusters){
-        if(overlayClusters){
-          points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, col=cols[i], pch=i)
-        } else {
-          points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, pch=14)
+
+      if(!is.null(vafs.merged$cluster)) {      
+        for(i in 1:numClusters){
+          if(overlayClusters){
+            points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, col=cols[i], pch=i)
+          } else {
+            points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, pch=14)
+          }
         }
+      } else {
+        points(v$vaf.1, v$vaf.2, pch=14)
       }
+
+      if(!is.null(vafs.merged$cluster)) {            
+        for(i in 1:numClusters){
+          if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
+            xc <- ellipse.metadata$SEMs.lb[i,d1] + ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2)
+            yc <- ellipse.metadata$SEMs.lb[i,d2] + ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2)
+
+            # ell <- my.ellipse(hlaxa = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), hlaxb = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2), xc = xc, yc = yc)
+
+            draw.ellipse(xc, yc, a = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), b = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2))
+                                      
+          }
+
+          if((!is.null(ellipse.metadata$std.dev.lb)) & (!is.null(ellipse.metadata$std.dev.ub))) {
+            xc <- ellipse.metadata$std.dev.lb[i,d1] + ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2)
+            yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
+
+            # Plot std dev as dashed line.
+            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
+          }
+        }        
+      }      
       #plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
-      legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
+      if(!is.null(vafs.merged$cluster)) {      
+        legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
+      }
     }
   }
   devoff = dev.off()
@@ -313,13 +618,13 @@ getClusterColors <- function(numClusters){
     cols = rep(cols,ceiling(length(cols)/20))
   }
   cols = cols[1:numClusters]
-  
+
   ##add transparency to colors
   for(i in 1:length(cols)){
     z = col2rgb(cols[i])
     cols[i] = rgb(z[1], z[2], z[3], 200, maxColorValue=255)
   }
-  return(cols)  
+  return(cols)
 }
 
 
@@ -338,4 +643,4 @@ getOneSampleVafs <- function(vafs.merged, d, numClusters){
   }
   return(vafs)
 }
-  
+

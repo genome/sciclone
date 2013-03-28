@@ -1,10 +1,10 @@
 Package: sciClone
 Title: Find clones from vaf data
-Version: 0.2.0
+Version: 0.3.0
 Author: Nathan Dees, Chris Miller, Brian White
-Description: Infer clonal entities in specimen using clustered vaf and read count data obtained from sequenced samples.
+Description: Identifies clonal entities from sequenced populations of cells, using read count information.
 Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
-Depends: mixtools, IRanges, mixdist
-Packaged: 2013-03-11 01:13:17 PM; cmiller
+Depends:IRanges, bmm
+Packaged: 2013-03-27 06:02:57 PM; cmiller
