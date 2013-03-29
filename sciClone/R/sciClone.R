@@ -393,7 +393,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
 ## calculate a samples purity from VAF peaks
 ##
 getPurity <- function(peakPos){
-    purity = 0
+  purity = 0
     if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
         purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
         if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
@@ -445,13 +445,17 @@ getDensity <- function(vafs){
                 ##find the peaks
                 p = c(getPeaks(factors[[i]]),FALSE,FALSE)
                 peakPos[[i]] = densities[[i]]$x[p]
-                peakHeights[[i]] = factors[[i]][p]
+                peakHeights[[i]] = factors[[i]][p]                
                 ##store the largest density for use in scaling the plots later
                 if(max(factors[[i]]) > maxDensity){
                     maxDensity = max(factors[[i]])
                 }
-
+                #filter out peaks unless they hit 10% of the max height
+                keep=which(peakHeights[[i]] > maxDensity*0.10)
+                peakPos[[i]] = peakPos[[i]][keep]
+                peakHeights[[i]] = peakPos[[i]][keep]
             }
+            
 
             ##store the largest depth for use in scaling the plots later
             if(max(v$depth) > maxDepth){
