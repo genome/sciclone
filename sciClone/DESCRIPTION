@@ -1,4 +1,4 @@
-B1;2305;0cPackage: sciClone
+Package: sciClone
 Title: Find clones from vaf data
 Version: 0.3.1
 Author: Nathan Dees, Chris Miller, Brian White
@@ -7,4 +7,4 @@ Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends: IRanges, bmm
-Packaged: 2013-03-28 21:22:10 UTC; cmiller
+Packaged: 2013-03-29 03:00:22 PM; cmiller
