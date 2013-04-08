@@ -10,15 +10,10 @@
 ##
 ## regions to include is chr,st,sp format
 ##
-sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude=NULL,
-                     sampleNames, minimumDepth=100, clusterMethod="bmm",clusterParams=NULL,
-                     minimumLabelledPeakHeight=0.001, onlyLabelHighestPeak=FALSE,
-                     overlayClusters=FALSE, overlayIndividualModels=FALSE,
-                     show1DHistogram=FALSE, plotOnlyCN2=FALSE,
-                     showCopyNumberScatterPlots=TRUE, positionsToHighlight=NULL,
-                     purities=NULL, highlightSexChrs=TRUE, cnCallsAreLog2=FALSE,
-                     useSexChrs=TRUE, highlightsHaveNames=FALSE, doClustering=TRUE,
-                     showTitle=TRUE, plotIntermediateResults=0, verbose=TRUE){
+sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
+                     sampleNames, minimumDepth=100, clusterMethod="bmm", clusterParams=NULL,
+                     purities=NULL, cnCallsAreLog2=FALSE, useSexChrs=TRUE,
+                     doClustering=TRUE, verbose=TRUE, copyNumberMargins=0.25){
 
   if(verbose){print("checking input data...")}
 
@@ -28,7 +23,6 @@ sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude=
     dimensions = 1;
     vafs=list(vafs)
     copyNumberCalls=list(copyNumberCalls)
-    sampleNames=c(sampleNames)
   } else if(is.list(vafs)){
     dimensions = length(vafs);
   } else {
@@ -59,18 +53,9 @@ sciClone <- function(vafs, outputPrefix, copyNumberCalls=NULL, regionsToExclude=
   }
   
   if(!is.null(regionsToExclude)){
-    print(regionsToExclude)
     if(is.data.frame(regionsToExclude)){
       regionsToExclude = list(regionsToExclude);
     }
-  }
-  
-  if(highlightsHaveNames){
-    if(is.null(positionsToHighlight)){
-      print("ERROR - if highlightsHaveNames is true, positionsToHighlight must be provided")
-      stop()
-xs    }
-    plotOnlyCN2=TRUE;
   }
   
   
@@ -88,7 +73,7 @@ xs    }
 
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
-    vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth)
+    vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth, copyNumberMargins)
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
       densityData = list(getDensity(vafs[[i]]))
@@ -110,7 +95,7 @@ xs    }
 
 
   ##-----------------------------------------------
-  ##do the clustering
+  ## munge the data
 
   ## merge the data frames to get a df with vafs and readcounts for each variant in each sample
   vafs.merged = vafs[[1]]
@@ -140,12 +125,8 @@ xs    }
   names(vafs.merged)[depthcols] = paste(sampleNames,".depth",sep="")
   names(vafs.merged)[cncols] = paste(sampleNames,".cn",sep="")  
   
-  ##---------------------------------------------------
-  ##do the clustering
-  
   ## remove any lines where all CN columns are not 2
   ## we only cluster based on sites that are CN neutral in all samples
-
   ## there is probably a better way to do this with an apply function...
   cnNeutral = rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
@@ -153,8 +134,11 @@ xs    }
       cnNeutral[i] = 0
     }
   }
-  
   vafs.merged.cn2 = vafs.merged[as.logical(cnNeutral),]
+  if(length(vafs.merged.cn2[,1]) < 1){
+    print("ERROR: no sites are copy number neutral in all samples")
+    return(NULL);
+  }
 
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
@@ -166,10 +150,12 @@ xs    }
   #convert vafs to be between 0 and 1
   vafs.matrix = vafs.matrix/100
 
+  ##---------------------------------------------------
+  ##do the clustering
   clust=NULL
   if(doClustering){
     if(verbose){print("clustering...")}
-    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=plotIntermediateResults)
+    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
     if(verbose){print("finished clustering full-dimensional data...");}
   }
 
@@ -214,38 +200,22 @@ xs    }
       vafs.1d[[i]] = vafs.1d.merged
     }
   }
-  
-  ##--------------------------------------------------------
-  ##output and plots
-  clusteredDataOutputFile=paste(outputPrefix,".clusters",sep="");
-  if(!(is.null(clust)) & !(is.null(clusteredDataOutputFile))){
-    ##TODO - order these first    
-    write.table(vafs.merged, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
-  }
-  
-  plot1d(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2,
-         showCopyNumberScatterPlots, clust, highlightSexChrs, positionsToHighlight,
-         highlightsHaveNames, overlayClusters, overlayIndividualModels, show1DHistogram,
-         onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle);
-
-  if((showMarginalData == TRUE) & (doClusteringAlongMargins == TRUE)) {
-    plot2dWithMargins(vafs.1d, vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, 
-                      marginalClust, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames,
-                      overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight)
-  }
-  
-  if(dimensions>1) {
-    plot2d(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters)
-  }
+  return(new("scObject", clust=clust, densities=densityData, dimensions=dimensions,  marginalClust=marginalClust,
+             sampleNames=sampleNames, vafs.1d=vafs.1d, vafs.merged=vafs.merged))
 }
 
 
-
+##------------------------------------------------------------------------------------------
+##  write out a table of all vafs, cns, and cluster assignments
+##
+writeClusterTable <- function(sco, outputFile){
+    write.table(sco@vafs.merged, file=outputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
+}
 
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##
-addCnToVafs <- function(vafs,cncalls){
+addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
   library(IRanges)  
   vafs$cn = NA
   ##for each chromosome
@@ -268,8 +238,8 @@ addCnToVafs <- function(vafs,cncalls){
   }
 
   ##round these values to absolute calls
-  for(n in 0:4){
-    pos = which(vafs$cn >= (n-0.5) & vafs$cn < n+0.5)
+  for(n in 1:4){
+    pos = which(vafs$cn >= (n-copyNumberMargins) & vafs$cn < (n+copyNumberMargins))
     if(length(pos) > 0){
       vafs[pos,]$cn = n
     }
@@ -331,7 +301,7 @@ excludeRegions <- function(vafs,regionsToExclude){
 ##---------------------------------------------------------------------
 ## clean up vaf data, add cn
 ##
-cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth){
+cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth, copyNumberMargins){
     names(vafs) = c("chr","st","ref","var","vaf")
 
     ##remove MT values
@@ -342,6 +312,9 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     vafs = vafs[!(is.na(vafs$vaf)),]
     if(length(vafs[,1]) == 0){return(vafs)}
 
+    ##remove duplicate sites
+    vafs = unique(vafs)
+    
     ##make sure columns are numeric
     for(i in 2:5){
       if(!(is.numeric(vafs[,i]))){
@@ -368,7 +341,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         if(cnCallsAreLog2){
             cn[,4] = (2^(cn[,4]))*2
         }
-        vafs = addCnToVafs(vafs,cn)
+        vafs = addCnToVafs(vafs,cn, copyNumberMargins)
     }
     ##remove sex chromosomes if specified
     if(!(useSexChrs)){
@@ -395,8 +368,8 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
 getPurity <- function(peakPos){
   purity = 0
     if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
-        purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
-        if(length(min(peakPos[[2]][peakPos[[2]] > 50])) > 0){
+        purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;        
+        if(length(peakPos[[2]][peakPos[[2]] > 50]) > 0){
             nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
             ##if the peak is between 50 and 60, assume that it's noise and
             ##the peak is actually at 50

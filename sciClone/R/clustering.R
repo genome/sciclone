@@ -15,10 +15,10 @@
 ##           Y values should be scaled between 0 and 1
 ##   individual.fits.y = a list of length number_of_clusters, holding the individual fits for each of the models, each represented by an M x P matrix (as for fit.y)
 
-clusterVafs <- function(vafs.merged, vafMatrix, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0){
+clusterVafs <- function(vafs.merged, vafMatrix, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
   ##check for suitable method
   if(method == "bmm"){
-   return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults))
+   return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0))
   ## }  else if(method != "mixtoolsBinomial"){
   ##   return(clusterWithMixtools(vafs, "Binomial", purity, params));
   ## } else if (method != "mixtoolsNormal"){
@@ -62,7 +62,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (binomial mixture model)
 ##
-clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0) {
+clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE) {
     library(bmm)
 
     #replace any values of zero with a very small number to prevent errors
@@ -70,6 +70,9 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     vafs[which(vafs==0)] = delta
 
     ## Initialize the hyperparameters of the Beta mixture model (bmm).
+    ## print(length(vafs))
+    ## print(head(vafs))
+    ## print(head(vafs.merged))
     hyperparams <- init.bmm.hyperparameters(vafs, initialClusters)
 
     ## Initialize the parameters of the bmm.
@@ -77,7 +80,7 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0, plotIntermediateResults=plotIntermediateResults)
+    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -92,13 +95,17 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     ## find confidence intervals around the means of the clusters
     intervals = bmm.narrowest.mean.interval.about.centers(bmm.results$mu, bmm.results$alpha, bmm.results$nu, bmm.results$beta, 0.68)
     means = intervals$centers
-    print("Cluster Centers:");
-    print(means);
+    if(verbose){
+      print("Cluster Centers:");      
+      print(means);
+    }
     lower = intervals$lb
     upper = intervals$ub
 
-    print("Outliers:")
-    print(bmm.results$outliers)
+    if(verbose){
+      print("Outliers:")
+      print(bmm.results$outliers)
+    }
     
 
     ## Generate (x,y) values of the posterior predictive density
@@ -154,8 +161,8 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
 ## ##--------------------------------------------------------------------------
 ## ## The beta distribution clustering + filtering method
 ## ##
-bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0, plotIntermediateResults = 0)
-{
+bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold = 10^-4,
+                                max.iterations = 10000, verbose = 0, plotIntermediateResults = 0){
 
     total.iterations <- 0
     N <- dim(X)[1] 
@@ -170,8 +177,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
     width <- as.real(erf(1.5/sqrt(2)))
     # width <- as.real(erf(1/sqrt(2)))
-
     if(plotIntermediateResults > 0) {
+      
       probs <- r
       numPoints = length(probs[,1])
       numClusters = length(probs[1,])
@@ -311,8 +318,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 do.inner.iteration <- TRUE
 
                 numeric.indices <- (1:N.c)
-                cat("Dropping clusters with pts: \n")
-                print(num.items.per.cluster[!non.zero.indices])  
+                if(verbose){
+                  cat("Dropping clusters with pts: \n")
+                  print(num.items.per.cluster[!non.zero.indices])
+                }
 
                 remove.data <- TRUE
                 if (remove.data == TRUE) {
@@ -406,10 +415,11 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 }        
             }
 
-            for(k in 1:N.c) {
+            if(verbose){
+              for(k in 1:N.c) {
                 cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", k, E.pi[k], overlaps[k]))
+              }
             }
-
             indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
 
             if(length(indices.to.keep) != N.c) {
@@ -421,11 +431,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
                     for(i in 1:length(indices.to.drop)) {
                         index <- indices.to.drop[i] 
-                        cat("Self-overlap condition: Dropping cluster with center: ")
-                        for(l in 1:num.dimensions) {
+                        if(verbose){
+                          cat("Self-overlap condition: Dropping cluster with center: ")
+                          for(l in 1:num.dimensions) {
                             cat(sprintf("%.3f ", means[l, index]))
+                          }
+                          cat("\n")
                         }
-                        cat("\n")
                     }
                 }
 
@@ -487,7 +499,9 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
             indices.to.keep.boolean <- rep(TRUE, N.c)
 
-            show.output <- TRUE
+            if(verbose){
+              show.output <- TRUE
+            }
             for(k in 1:N.c) {
                 if (show.output) {
                     cat(sprintf("%dD: Cluster %d pi = %.3f: ", num.dimensions, k, E.pi[k]))
@@ -525,8 +539,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 do.inner.iteration <- TRUE
                 numeric.indices <- (1:N.c)
 
-                cat("Removing clusters because of SEM condition: \n")
-                print(numeric.indices[non.zero.indices])
+                if(verbose){
+                  cat("Removing clusters because of SEM condition: \n")
+                  print(numeric.indices[non.zero.indices])
+                }
 
                 clusters <- hardClusterAssignments(N,N.c,r)
 
@@ -627,16 +643,18 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                         }
                     }
                     if(i.subsumed.by.another.cluster==TRUE) {
+                      if(verbose){
                         cat(sprintf("2. Dropping cluster with center: "))
                         for(l in 1:num.dimensions){
-                            cat(sprintf("%.3f ", std.dev.centers[i,l]))
+                          cat(sprintf("%.3f ", std.dev.centers[i,l]))
                         }
                         cat(sprintf("because it overlaps with: "))
                         for(l in 1:num.dimensions){
-                            cat(sprintf("(%.3f, %.3f) ", std.dev.lb[i2,l], std.dev.ub[i2,l]))
+                          cat(sprintf("(%.3f, %.3f) ", std.dev.lb[i2,l], std.dev.ub[i2,l]))
                         }
                         cat("\n")
                         break
+                      }
                     }
                 }
                 if(i.subsumed.by.another.cluster==TRUE) {
@@ -655,11 +673,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
                     for(i in 1:length(indices.to.drop)) {
                         index <- indices.to.drop[i] 
-                        cat("3. Dropping cluster with center: ")
-                        for(l in 1:num.dimensions) {
+                        if(verbose){
+                          cat("3. Dropping cluster with center: ")
+                          for(l in 1:num.dimensions) {
                             cat(sprintf("%.3f ", means[l, index]))
+                          }
+                          cat("\n")
                         }
-                        cat("\n")
                     }
                 }
 
@@ -726,7 +746,9 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             for(i in 1:N.c){
                 #cat("Cluster i = ", i, " overlaps: \n")
                 for(i2 in 1:N.c){
+                  if(verbose){
                     cat("   ")
+                  }
                     for(l in 1:num.dimensions){
                         fraction <- 0
                         if((std.dev.lb[i,l] < std.dev.ub[i2,l]) & (std.dev.ub[i,l] > std.dev.lb[i2,l])) {
@@ -752,10 +774,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     if(indices.to.keep.boolean[i2] == FALSE) { next }
                     if(overlaps[i,i2] == 1) {
                         if((overlaps[i2,i] == 1) & (E.pi[i2] < E.pi[i])) {
-                            cat("Removing ", i2, " because of overlap with i = ", i, "\n")
+                          if(verbose){cat("Removing ", i2, " because of overlap with i = ", i, "\n")}
                             indices.to.keep.boolean[i2] <- FALSE               
                         } else {
-                            cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")
+                            if(verbose){cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")}
                             indices.to.keep.boolean[i] <- FALSE               
                         }
                     }
@@ -773,11 +795,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
                     for(i in 1:length(indices.to.drop)) {
                         index <- indices.to.drop[i] 
-                        cat("4. Dropping cluster with center: ")
-                        for(l in 1:num.dimensions) {
+                        if(verbose){
+                          cat("4. Dropping cluster with center: ")
+                          for(l in 1:num.dimensions) {
                             cat(sprintf("%.3f ", means[l, index]))
+                          }
+                          cat("\n")
                         }
-                        cat("\n")
                     }
                 }
 
@@ -841,27 +865,28 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     std.dev.ub <- t(std.dev.res$ub)
 
     for(k in 1:N.c) {
-        cat(sprintf("Cluster %d pi = %.3f center =", k, E.pi[k]))
+      if(verbose){cat(sprintf("Cluster %d pi = %.3f center =", k, E.pi[k]))}
+      
         for(d in 1:num.dimensions) {
             center <- SEM.centers[k,d]
-            cat(sprintf(" %.3f", center))
+            if(verbose){cat(sprintf(" %.3f", center))}
         }
-        cat(" SEM =")
+        if(verbose){cat(" SEM =")}
         for(d in 1:num.dimensions) {
             lb <- SEMs.lb[k,d]
             ub <- SEMs.ub[k,d]            
-            cat(sprintf(" (%.3f, %.3f)", lb, ub))
+            if(verbose){cat(sprintf(" (%.3f, %.3f)", lb, ub))}
         }
-        cat(" sd =")
+        if(verbose){cat(" sd =")}
         for(d in 1:num.dimensions) {
             lb <- std.dev.lb[k,d]
             ub <- std.dev.ub[k,d]            
-            cat(sprintf(" (%.3f, %.3f)", lb, ub))
+            if(verbose){cat(sprintf(" (%.3f, %.3f)", lb, ub))}
         }
-        cat("\n")
+        if(verbose){cat("\n")}
     }
 
-    cat(sprintf('total iterations = %d\n', total.iterations))
+    if(verbose){cat(sprintf('total iterations = %d\n', total.iterations))}
     
     retList <- list("retVal" = 0, "mu" = mu, "alpha" = alpha, "nu" = nu, "beta" = beta, "c" = c, "r" = r, "num.iterations" = total.iterations, "ln.rho" = ln.rho, "E.lnu" = E.lnu, "E.lnv" = E.lnv, "E.lnpi" = E.lnpi, "E.pi" = E.pi, "E.quadratic.u" = E.quadratic.u, "E.quadratic.v" = E.quadratic.v, "ubar" = ubar, "vbar" = vbar, "outliers" = outliers)
 

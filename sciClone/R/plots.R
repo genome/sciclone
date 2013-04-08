@@ -1,11 +1,36 @@
-
 ##---------------------------------------------------------------------------------
 ## Create the one dimensional plot with kde and scatter
 ##
-plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, showCopyNumberScatterPlots, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, overlayIndividualModels, show1DHistogram, onlyLabelHighestPeak, minimumLabelledPeakHeight, showTitle){
+sc.plot1d <- function(sco, outputFile,
+                   plotOnlyCN2=FALSE, showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
+                   positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
+                   overlayIndividualModels=TRUE, show1DHistogram=FALSE, onlyLabelHighestPeak=FALSE,
+                   minimumLabelledPeakHeight=0.001, showTitle=TRUE){
 
-  pdf(file=paste(outputPrefix,".1d.pdf",sep=""), width=3.3, height=7.5, bg="white");
 
+  #sanity checks
+  if(highlightsHaveNames){      
+    if(!(is.null(positionsToHighlight))){
+      if(length(positionsToHighlight) < 3){
+        print("ERROR: named plot requires names in the third column of the positionsToHighlight data frame")
+        return(0)
+      } 
+      plotOnlyCN2=TRUE
+    } else {
+      print("ERROR: highlightsHaveNames requires a 3-column dataframe of positions and names (chr, pos, name)");
+      return(0);
+    }    
+  }
+  
+  densityData = sco@densities
+  vafs.merged = sco@vafs.merged
+
+  sampleNames = sco@sampleNames
+  dimensions = sco@dimensions
+  clust = sco@clust
+  
+  pdf(file=outputFile, width=3.3, height=7.5, bg="white");
+  
   numClusters = 0
   if(!is.null(clust)) {
     numClusters = max(clust$cluster.assignments)
@@ -43,10 +68,8 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
     } else {
       cnToPlot = 1:4
     }
-
     ##grab only the vafs for this sample:
     vafs = getOneSampleVafs(vafs.merged, d, numClusters);
-
     ##colors for different copy numbers
     colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
 
@@ -55,17 +78,19 @@ plot1d <- function(vafs.merged, outputPrefix, densityData, sampleNames, dimensio
         ##density lines
         lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
         ##peak labels
-        ppos = c();
-        if(onlyLabelHighestPeak){
-          ppos = which(peakHeights[[i]] == max(peakHeights[[i]]))
-        } else {
-          ppos = which((peakHeights[[i]] == max(peakHeights[[i]])) &
-            (peakHeights[[i]] > minimumLabelledPeakHeight))
-        }
-        if(length(ppos) > 0){
-          text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
-               labels=signif(peakPos[[i]][ppos],3),
-               cex=0.7, srt=0, col=colors[[i]]);
+        if(length(peakHeights[[i]]) > 0){
+          ppos = c();
+          if(onlyLabelHighestPeak){
+            ppos = which(peakHeights[[i]] == max(peakHeights[[i]]))
+          } else {
+            ppos = which((peakHeights[[i]] == max(peakHeights[[i]])) &
+              (peakHeights[[i]] > minimumLabelledPeakHeight))
+          }
+          if(length(ppos) > 0){
+            text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
+                 labels=signif(peakPos[[i]][ppos],3),
+                 cex=0.7, srt=0, col=colors[[i]]);
+          }
         }
       } else if(show1DHistogram & (i == 2)) {
 
@@ -317,8 +342,17 @@ addHighlightLegend <- function(data, positionsToHighlight){
 ## clustering results and 1D plots along margins, this time using
 ## ggplot2
 
-plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, densityData, sampleNames, dimensions, plotOnlyCN2, marginalClust, clust, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters, onlyLabelHighestPeak, minimumLabelledPeakHeight){
+plot2dWithMargins <- function(outputFile, plotOnlyCN2, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters,
+                              onlyLabelHighestPeak, minimumLabelledPeakHeight){
 
+  densityData = sco@densities
+  vafs.merged = sco@vafs.merged
+  vafs.1d.merged = sco@vafs.merged
+  sampleNames = sco@sampleNames
+  dimensions = sco@dimensions
+  clust = sco@clust
+  marginalClust = sco@marginalClust
+  
   library(grid)
   library(ggplot2)
 
@@ -328,7 +362,7 @@ plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, density
   xmin <- -5
   xmax <- 105
 
-  tmp.file <- tempfile(paste(basename(outputPrefix),".2d.with.margins.tmp.pdf",sep=""))
+  tmp.file <- tempfile(outputFile.tmp)
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
   
   # Create (and store) all possible 1D plots
@@ -403,7 +437,7 @@ plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, density
   
   vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
 
-  pdf(file=paste(outputPrefix,".2d.with.margins.pdf",sep=""), width=7.2, height=6, bg="white")
+  pdf(file=outputFile, width=7.2, height=6, bg="white")
 
   ##create a 2d plot for each pairwise combination of samples
   for(d1 in 1:(dimensions-1)){
@@ -493,8 +527,15 @@ plot2dWithMargins <- function(vafs.1d.merged, vafs.merged, outputPrefix, density
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata = list()){
-  pdf(file=paste(outputPrefix,".2d.pdf",sep=""), width=7.2, height=6, bg="white")
+sc.plot2d <- function(sco, outputFile, positionsToHighlight, highlightsHaveNames, overlayClusters=TRUE, ellipse.metadata = list()){
+  pdf(outputFile, width=7.2, height=6, bg="white")
+
+  densityData = sco@densities
+  vafs.merged = sco@vafs.merged
+  sampleNames = sco@sampleNames
+  dimensions = sco@dimensions
+  clust = sco@clust
+
   numClusters = 0
   if(!is.null(vafs.merged$cluster)) {
     numClusters = max(vafs.merged$cluster, na.rm=T)
@@ -568,7 +609,7 @@ plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positions
             yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
 
             # Plot std dev as dashed line.
-            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
+            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipsex.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
           }
         }        
       }      
@@ -581,6 +622,42 @@ plot2d <- function(vafs.merged, outputPrefix, sampleNames, dimensions, positions
   devoff = dev.off()
 }
 
+
+##-------------------------------------------------------------------------------------
+## plot three samples in 3d, optionally create a GIF
+##
+sc.plot3d <- function(sc, samplesToPlot, size=700, outputFile=NULL){
+  library(rgl)
+  ##set the size of the window
+  r3dDefaults$windowRect <- c(0,50, size, size)
+
+  a = sc@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
+  a = a[!is.na(a$cluster),]
+  numClusters=length(unique(a$cluster))
+  cols=getClusterColors(numClusters)
+  colvec = cols[a$cluster]
+
+  plot3d(a[,1], a[,2], a[,3], xlim=c(0,100), ylim=c(0,100),zlim=c(0,100), axes=FALSE, 
+         xlab=samplesToPlot[1], ylab=samplesToPlot[2], zlab=samplesToPlot[3],
+         type="s", col=colvec)
+  ##add a box
+  axes3d( edges=c("x--", "y--", "z"),labels=FALSE)
+  for(i in c("+","-")){
+    for(j in c("+","-")){
+      axes3d( edges=paste("x",i,j,sep=""), tick=FALSE, labels=FALSE)
+      axes3d( edges=paste("y",i,j,sep=""), tick=FALSE, labels=FALSE)
+      axes3d( edges=paste("z",i,j,sep=""), tick=FALSE, labels=FALSE)
+    }
+  }
+  
+  if(is.null(outputFile)){
+    play3d(spin3d(axis=c(0,0,1), rpm=10), duration=6)
+  } else {
+    ##remove trailing .gif, since movie3d adds it
+    sub(".gif$","",outputFile)
+    movie3d(spin3d(axis=c(0,0,1), rpm=10), duration=6, dir=getwd(), movie=outputFile)
+  }
+}
 
 
 ##-------------------------------------------------------------------------------------
@@ -623,4 +700,6 @@ getOneSampleVafs <- function(vafs.merged, d, numClusters){
   }
   return(vafs)
 }
+
+
 
