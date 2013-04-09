@@ -11,9 +11,10 @@
 ## regions to include is chr,st,sp format
 ##
 sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
-                     sampleNames, minimumDepth=100, clusterMethod="bmm", clusterParams=NULL,
-                     purities=NULL, cnCallsAreLog2=FALSE, useSexChrs=TRUE,
-                     doClustering=TRUE, verbose=TRUE, copyNumberMargins=0.25){
+                     sampleNames, minimumDepth=100, clusterMethod="bmm",
+                     clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
+                     useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
+                     copyNumberMargins=0.25, maximumClusters=10){
 
   if(verbose){print("checking input data...")}
 

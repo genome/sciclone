@@ -1,4 +1,4 @@
-##---------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------
 ## Create the one dimensional plot with kde and scatter
 ##
 sc.plot1d <- function(sco, outputFile,
@@ -342,9 +342,7 @@ addHighlightLegend <- function(data, positionsToHighlight){
 ## clustering results and 1D plots along margins, this time using
 ## ggplot2
 
-plot2dWithMargins <- function(outputFile, plotOnlyCN2, highlightSexChrs, positionsToHighlight, highlightsHaveNames, overlayClusters,
-                              onlyLabelHighestPeak, minimumLabelledPeakHeight){
-
+plot2dWithMargins <- function(sco, outputFile){
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
   vafs.1d.merged = sco@vafs.merged
@@ -362,7 +360,7 @@ plot2dWithMargins <- function(outputFile, plotOnlyCN2, highlightSexChrs, positio
   xmin <- -5
   xmax <- 105
 
-  tmp.file <- tempfile(outputFile.tmp)
+  tmp.file <- tempfile("outputFile.tmp")
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
   
   # Create (and store) all possible 1D plots
@@ -527,7 +525,7 @@ plot2dWithMargins <- function(outputFile, plotOnlyCN2, highlightSexChrs, positio
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight, highlightsHaveNames, overlayClusters=TRUE, ellipse.metadata = list()){
+sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = list()){
   pdf(outputFile, width=7.2, height=6, bg="white")
 
   densityData = sco@densities
@@ -609,7 +607,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight, highlightsHaveNames
             yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
 
             # Plot std dev as dashed line.
-            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipsex.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
+            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
           }
         }        
       }      
@@ -626,12 +624,12 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight, highlightsHaveNames
 ##-------------------------------------------------------------------------------------
 ## plot three samples in 3d, optionally create a GIF
 ##
-sc.plot3d <- function(sc, samplesToPlot, size=700, outputFile=NULL){
+sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
   library(rgl)
   ##set the size of the window
   r3dDefaults$windowRect <- c(0,50, size, size)
 
-  a = sc@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
+  a = sco@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
   a = a[!is.na(a$cluster),]
   numClusters=length(unique(a$cluster))
   cols=getClusterColors(numClusters)
@@ -665,8 +663,6 @@ sc.plot3d <- function(sc, samplesToPlot, size=700, outputFile=NULL){
 ##
 getClusterColors <- function(numClusters){
   library(RColorBrewer)
-  cols = NA;
-
   cols=brewer.pal(8,"Dark2")
   if(numClusters>8){
     cols = c(cols,brewer.pal(9,"Set1"))

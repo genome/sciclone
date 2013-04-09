@@ -206,7 +206,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
       ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
 
-      plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
+      #sc.plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], ellipse.metadata=ellipse.metadata)
+      sc.plot2d(vafs.with.assignments, outputPrefix, ellipse.metadata=ellipse.metadata)
       
     }
     
@@ -255,7 +256,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           numClusters = length(probs[1,])
           clusters = hardClusterAssignments(numPoints,numClusters,probs);
           vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
-          outputPrefix <- paste("tumor", total.iterations, sep="")
+          #outputPrefix <- paste("tumor", total.iterations, sep="")
           sampleNames <- c("Tumor", "Relapse")
           positionsToHighlight <- NULL
           highlightsHaveNames <- FALSE
@@ -276,8 +277,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           std.dev.ub <- 100 * t(std.dev.res$ub)
 
           ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
-
-          plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
+          ##todo - fixme
+          ##sc.plot2d(vafs.with.assignments, "clusters.int.pdf", sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
       
         }
     
