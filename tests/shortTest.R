@@ -38,12 +38,13 @@ cat("\n")
 
 print("")
 #run one sample
-sciClone(vafs=v1,
+sc = sciClone(vafs=v1,
          copyNumberCalls=cn1,
          sampleNames=names[1],
-         outputPrefix="results/shortTest1",
-         regionsToExclude=reg1,
-         overlayClusters=TRUE)
+         regionsToExclude=reg1)
+writeClusterTable(sc, "results/clusters1")
+sc.plot1d(sc,"results/clusters1.1d.pdf")
+
 
 
 
@@ -62,24 +63,40 @@ cat("=========================================================\n")
 cat("Test 2 - two samples - shortTest2\n")
 cat("\n")
 #run two samples
-sciClone(vafs=list(v1,v2),
-         copyNumberCalls=list(cn1,cn2),
-         sampleNames=names[1:2],
-         outputPrefix="results/shortTest2",
-         overlayClusters=TRUE)
+sc = sciClone(vafs=list(v1,v2),
+              copyNumberCalls=list(cn1,cn2),
+              sampleNames=names[1:2])
+writeClusterTable(sc, "results/clusters2")
+sc.plot1d(sc,"results/clusters2.1d.pdf")
+sc.plot2d(sc,"results/clusters2.2d.pdf")
 
 
 
 cat("\n")
 cat("=========================================================\n")
-cat("Test 3 - three samples - shortTest3\n")
+cat("Test 3.0 - three samples - should fail")
 cat("\n")
 #run two samples
-sciClone(vafs=list(v1,v2,v3),
-         copyNumberCalls=list(cn1,cn2,cn3),
-         sampleNames=names,
-         outputPrefix="results/shortTest3",
-         regionsToExclude=list(reg1,reg1),
-         overlayClusters=TRUE)
+sc = sciClone(vafs=list(v1,v2,v3),
+              copyNumberCalls=list(cn1,cn2,cn3),
+              sampleNames=names,
+              regionsToExclude=list(reg1,reg1))
+if(!(is.null(sc))){
+  print("ERROR - this should have failed, because there are no cn-neutral points in all three samples")
+  stop()
+}
 
 
+cat("\n")
+cat("=========================================================\n")
+cat("Test 3.1 - three samples - should succeeded")
+cat("\n")
+#run two samples
+sc = sciClone(vafs=list(v1,v2,v3),
+              copyNumberCalls=list(cn1,cn2,cn2),
+              sampleNames=names,
+              regionsToExclude=list(reg1,reg1))
+writeClusterTable(sc, "results/clusters3")
+sc.plot1d(sc,"results/clusters3.1d.pdf")
+sc.plot2d(sc,"results/clusters3.2d.pdf")
+sc.plot3d(sc, sc@sampleNames, size=700, outputFile="results/clusters3.3d.gif")
