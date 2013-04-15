@@ -60,7 +60,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 
 
 ##--------------------------------------------------------------------------
-## Do clustering with bmm (binomial mixture model)
+## Do clustering with bmm (beta mixture model)
 ##
 clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE) {
     library(bmm)
@@ -207,7 +207,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
 
       #sc.plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], ellipse.metadata=ellipse.metadata)
-      sc.plot2d(vafs.with.assignments, outputPrefix, ellipse.metadata=ellipse.metadata)
+      sc.plot2d(vafs.with.assignments, outputPrefix, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
       
     }
     

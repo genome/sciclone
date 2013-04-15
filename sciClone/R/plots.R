@@ -342,10 +342,10 @@ addHighlightLegend <- function(data, positionsToHighlight){
 ## clustering results and 1D plots along margins, this time using
 ## ggplot2
 
-plot2dWithMargins <- function(sco, outputFile){
+plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlightsHaveNames=FALSE) {
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
-  vafs.1d.merged = sco@vafs.merged
+  vafs.1d.merged = sco@vafs.1d
   sampleNames = sco@sampleNames
   dimensions = sco@dimensions
   clust = sco@clust
@@ -433,7 +433,7 @@ plot2dWithMargins <- function(sco, outputFile){
   devoff = dev.off()
   unlink(tmp.file)
   
-  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
+  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y, clip="off")
 
   pdf(file=outputFile, width=7.2, height=6, bg="white")
 
@@ -467,14 +467,35 @@ plot2dWithMargins <- function(sco, outputFile){
       vafs2 = vafs2[vafs2$cn==2,]
 
       v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
-      clusters <- v$cluster
-      
-      frequencies <- data.frame(x=v$vaf.1, y=v$vaf.2, row.names=NULL, stringsAsFactors=NULL)
+
+      v.no.highlight <- v
+      if(!(is.null(positionsToHighlight))) {
+        chr.start.v <- cbind(v[,1], v[,2])
+        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])        
+        v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
+
+      }
 
       title <- ""
 
-      g <- ggplot(data = frequencies, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies, aes(x=x, y=y), shape=clusters, colour=clusters)
+      clusters <- v.no.highlight$cluster
+      
+      # Plot the points that we will not highlight
+      frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
+      g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=clusters) 
+
+      # Now overlay any points that we will highlight
+      if(!(is.null(positionsToHighlight))) {
+        # Merge the data and the positions to highlight by chr (col 1)
+        # and start (col 2)
+        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
+        frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
+
+        g <- g + geom_point(data = frequencies.highlight, aes(x=x, y=y), shape="*", size=10, colour="black")
+
+      }
+      
       # g <- g + theme_bw() + theme(axis.line = element_line(colour = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
 
       g <- g + theme_bw() + theme(panel.border = element_blank())
@@ -488,21 +509,66 @@ plot2dWithMargins <- function(sco, outputFile){
       g <- g + geom_line(data = vline, aes(x,y))      
 
       g <- g + coord_cartesian(xlim=c(xmin, xmax), ylim=c(xmin, xmax))
-
+      
       plot.2d <- g
+
+      # Code to override clipping
+      #plot.2d <- ggplot_gtable(ggplot_build(g))
+      #plot.2d$layout$clip[plot.2d$layout$name=="panel"] <- "off"
+      #grid.draw(plot.2d)
 
       plot.1d.1 <- plots.1d.list[[d1]]
       plot.1d.2 <- plots.1d.list[[d2]]
       
       grid.newpage()
 
-      pushViewport(viewport(layout = grid.layout(2, 2)))
+      pushViewport(viewport(layout = grid.layout(2, 2), clip="off"))
 
       text.size <- 10
       
       vp <- vplayout(1,1)
+      vp11 <- vp
       plot.2d <- plot.2d + theme(text = element_text(size = text.size))
       print(plot.2d, vp=vp)
+
+      if(!(is.null(positionsToHighlight))) {
+        # Merge the data and the positions to highlight by chr (col 1)
+        # and start (col 2)
+        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
+        frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
+
+        # Add the labels
+        if(length(addpts[,1]) > 1){
+          if(highlightsHaveNames){
+
+            # This code adapted from stackoverflow.com/questions/10536396/using-grconvertx-grconverty-in-ggplot2
+            # Create a new viewport with clipping disabled so we can
+            # put text outside the plot
+            depth <- downViewport('panel.3-4-3-4')
+            pushViewport(dataViewport(xData=c(0,100), yData=c(0,100), clip='off'))
+            for(i in 1:dim(addpts)[1]) {
+              if(addpts$vaf.1[i] < 1) {
+                x <- addpts$vaf.1[i] - 12
+                y <- addpts$vaf.2[i]
+              } else if(addpts$vaf.2[i] < 1) {
+                x <- addpts$vaf.1[i]
+                y <- addpts$vaf.2[i] - 10                
+              } else {
+                x <- addpts$vaf.1[i] + 5
+                y <- addpts$vaf.2[i] + 5
+              }
+              label <- addpts$gene_name[i]
+              df <- data.frame(x=x, y=y)
+              grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+            }
+
+            # Move up depth+1 in the tree.  NB: +1 because we pushed a
+            # viewport on to the tree.
+            upViewport(depth+1)
+          }
+        }        
+        
+      }
 
       vp <- vplayout(1,2)
       plot.1d.2 <- plot.1d.2 + theme(text = element_text(size = text.size))
@@ -512,6 +578,8 @@ plot2dWithMargins <- function(sco, outputFile){
       vp <- vplayout(2,1)
       plot.1d.1 <- plot.1d.1 + theme(text = element_text(size = text.size))
       print(plot.1d.1, vp=vp)
+
+      
     }
   }
   devoff = dev.off()
@@ -525,7 +593,7 @@ plot2dWithMargins <- function(sco, outputFile){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = list()){
+sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, ellipse.metadata = list()){
   pdf(outputFile, width=7.2, height=6, bg="white")
 
   densityData = sco@densities
@@ -547,7 +615,7 @@ sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = 
       if(d1==d2){
         next
       }
-      
+
       vafs1 = getOneSampleVafs(vafs.merged, d1, numClusters);
       vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
 
@@ -563,6 +631,7 @@ sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = 
       } else {
         v = merge(vafs1,vafs2,by.x=c(1,2), by.y=c(1,2),suffixes=c(".1",".2"))
       }
+
       cols = getClusterColors(numClusters)
       #create the plot
       #layout(matrix(c(1,2),1,2, byrow=TRUE), widths=c(4,1), heights=c(1,1))
@@ -578,18 +647,48 @@ sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = 
       axis(side=1,at=seq(0,100,20),labels=seq(0,100,20))
 
 
+      # If we will be highlighting some points, exclude them from
+      # the general list of points to plot and plot them instead with
+      # a different symbol/color (a black *)
+      v.no.highlight <- v
+      if(!(is.null(positionsToHighlight))) {
+        chr.start.v <- cbind(v[,1], v[,2])
+        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])        
+        v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
+
+      }
+      
       if(!is.null(vafs.merged$cluster)) {      
         for(i in 1:numClusters){
           if(overlayClusters){
-            points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, col=cols[i], pch=i)
+            if(dim(v.no.highlight[v.no.highlight$cluster==i,])[1] > 0) {
+              points(v.no.highlight[v.no.highlight$cluster==i,]$vaf.1, v.no.highlight[v.no.highlight$cluster==i,]$vaf.2, col=cols[i], pch=i)
+            }
           } else {
-            points(v[v$cluster==i,]$vaf.1, v[v$cluster==i,]$vaf.2, pch=14)
+            if(dim(v.no.highlight[v.no.highlight$cluster==i,])[1] > 0) {
+              points(v.no.highlight[v.no.highlight$cluster==i,]$vaf.1, v.no.highlight[v.no.highlight$cluster==i,]$vaf.2, pch=14)
+            }
           }
         }
       } else {
-        points(v$vaf.1, v$vaf.2, pch=14)
+        if(dim(v.no.highlight)[1] > 0) {
+          points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14)
+        }
       }
 
+      # Now plot the highlighted points so they are overlaid
+      if(!(is.null(positionsToHighlight))) {
+        # Merge the data and the positions to highlight by chr (col 1)
+        # and start (col 2)
+        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
+        
+        # Plot the highlighted items.  NB:  we never overlay the
+        # cluster on them, but expect this will be obvious from context
+        points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+
+      }
+
+      
       if(!is.null(vafs.merged$cluster)) {            
         for(i in 1:numClusters){
           if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
@@ -615,6 +714,27 @@ sc.plot2d <- function(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = 
       if(!is.null(vafs.merged$cluster)) {      
         legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
       }
+
+      # Add annotation for gene names, if requested
+      if(!(is.null(positionsToHighlight))){
+        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
+        # write.table(file="genes.txt", unique(addpts$gene_name), row.names=FALSE, col.names=FALSE, quote=FALSE)
+        if(length(addpts[,1]) > 1){
+          if(highlightsHaveNames){
+            for(i in 1:dim(addpts)[1]) {
+              par(xpd=NA)
+              cex <- 1
+              if(addpts$vaf.1[i] < 1) {
+                text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
+              } else if(addpts$vaf.2[i] < 1) {
+                text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
+              } else { 
+                text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
+              }
+            }
+          }
+        }
+      } # End add gene annotations
     }
   }
   devoff = dev.off()
