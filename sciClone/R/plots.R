@@ -749,6 +749,11 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
   ##set the size of the window
   r3dDefaults$windowRect <- c(0,50, size, size)
 
+  if(length(samplesToPlot) != 3)
+    print("ERROR: must provide exactly 3 sample names for 3d plotting")
+    return(0)
+  }
+  
   a = sco@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
   a = a[!is.na(a$cluster),]
   numClusters=length(unique(a$cluster))
