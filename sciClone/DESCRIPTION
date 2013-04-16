@@ -7,4 +7,4 @@ Maintainer: Chris Miller <cmiller@genome.wustl.edu>
 LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends: IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
-Packaged: 2013-04-16 02:43:19 PM; cmiller
+Packaged: 2013-04-16 04:29:43 PM; cmiller

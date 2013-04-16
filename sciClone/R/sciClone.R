@@ -133,6 +133,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       adequateDepth[i] = 0
     }
   }
+  vafs.merged$adequateDepth=adequateDepth
+  
   #determine whether all samples are copy number neutral at each site
   cnNeutral = rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
@@ -175,10 +177,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
   numClusters=0
-  if(!(is.null(clust[1]))){
+  if(!(is.null(clust[[1]]))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
     #append (hard and fuzzy) cluster assignments
-
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster.prob=clust$cluster.probabilities)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
@@ -186,7 +187,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
     print(paste("found",numClusters,"clusters"))
   }
-
+  
   # Show a 1D projection of the data along the axes for multidimensional data.
   showMarginalData <- TRUE
   #showMarginalData <- FALSE
@@ -230,7 +231,7 @@ writeClusterTable <- function(sco, outputFile){
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##
-addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
+addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
   library(IRanges)
   vafs$cn = NA
   vafs$cleancn = NA
@@ -354,6 +355,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     if(is.null(cn)){
         ##assume all sites are 2x if no cn info
         vafs$cn = 2;
+        vafs$cleancn = 2;
     } else {
         if(cnCallsAreLog2){
             cn[,4] = (2^(cn[,4]))*2
