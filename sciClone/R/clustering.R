@@ -76,9 +76,6 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     vafs[which(vafs==0)] = delta
 
     ## Initialize the hyperparameters of the Beta mixture model (bmm).
-    ## print(length(vafs))
-    ## print(head(vafs))
-    ## print(head(vafs.merged))
     hyperparams <- init.bmm.hyperparameters(vafs, initialClusters)
 
     ## Initialize the parameters of the bmm.

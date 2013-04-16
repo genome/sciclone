@@ -111,12 +111,11 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   vafcols = grep("^vaf",names(vafs.merged))
   depthcols = grep("^depth",names(vafs.merged))
   cncols = grep("^cn",names(vafs.merged))
+  cleancncols = grep("^cleancn",names(vafs.merged))
+
   ##change NA values introduced by merge to ref/var/vaf/depth of zero, cn of 2
   for(i in c(vafcols,refcols,varcols,depthcols)){
     vafs.merged[is.na(vafs.merged[,i]),i] = 0;
-  }
-  for(i in cncols){
-    vafs.merged[is.na(vafs.merged[,i]),i] = 2;
   }
 
   #add sample names to make output pretty
@@ -125,22 +124,37 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   names(vafs.merged)[vafcols] = paste(sampleNames,".vaf",sep="")
   names(vafs.merged)[depthcols] = paste(sampleNames,".depth",sep="")
   names(vafs.merged)[cncols] = paste(sampleNames,".cn",sep="")
+  names(vafs.merged)[cleancncols] = paste(sampleNames,".cleancn",sep="")
 
-  ## remove any lines where all CN columns are not 2
-  ## we only cluster based on sites that are CN neutral in all samples
-  ## there is probably a better way to do this with an apply function...
-  cnNeutral = rep(1,length(vafs.merged[,1]))
+  #determine whether there is adequate depth at each site in all samples
+  adequateDepth =  rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
-    if(sum(as.numeric(vafs.merged[i,cncols]==2)) < length(cncols)){
-      cnNeutral[i] = 0
+    if(length(which(vafs.merged[i,depthcols] > minimumDepth)) < length(depthcols)){
+      adequateDepth[i] = 0
     }
   }
-  vafs.merged.cn2 = vafs.merged[as.logical(cnNeutral),]
+  #determine whether all samples are copy number neutral at each site
+  cnNeutral = rep(1,length(vafs.merged[,1]))
+  for(i in 1:length(vafs.merged[,1])){
+    for(j in cleancncols){
+      if(is.na(vafs.merged[i,j])){
+        cnNeutral[i] = 0
+      } else if(vafs.merged[i,j] != 2){ 
+        cnNeutral[i] = 0
+      }
+    }
+  }
+
+  ## remove any lines where all clean CN columns are not 2 and depth is adequate
+  ## we only cluster based on sites that are CN neutral in all samples
+  vafs.merged.cn2 = vafs.merged[(as.logical(cnNeutral) & as.logical(adequateDepth)),]
   if(length(vafs.merged.cn2[,1]) < 1){
-    print("ERROR: no sites are copy number neutral in all samples")
+    print("ERROR: no sites are copy number neutral and have adequate depth in all samples")
     return(NULL);
   }
 
+  print(paste(length(vafs.merged.cn2[,1]),"sites are copy number neutral and have adequate depth in all samples"))
+  
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
   vafs.merged.orig <- vafs.merged
@@ -153,7 +167,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
   ##---------------------------------------------------
   ##do the clustering
-  clust=NULL
+  clust=list(NULL)
   if(doClustering){
     if(verbose){print("clustering...")}
     clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
@@ -161,7 +175,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
   numClusters=0
-  if(!(is.null(clust))){
+  if(!(is.null(clust[1]))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
     #append (hard and fuzzy) cluster assignments
 
@@ -219,6 +233,7 @@ writeClusterTable <- function(sco, outputFile){
 addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
   library(IRanges)
   vafs$cn = NA
+  vafs$cleancn = NA
   ##for each chromosome
   for(chr in names(table(vafs$chr))){
     vars = IRanges(start=vafs[vafs$chr==chr,]$st, end=vafs[vafs$chr==chr,]$st)
@@ -242,13 +257,14 @@ addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
   for(n in 1:4){
     pos = which(vafs$cn >= (n-copyNumberMargins) & vafs$cn < (n+copyNumberMargins))
     if(length(pos) > 0){
-      vafs[pos,]$cn = n
+      vafs[pos,]$cleancn = n
     }
   }
 
   if(length(which(is.na(vafs$cn))) > 0){
     print("Not all variants fall within a provided copy number region. The copy number of these variants is assumed to be 2.")
     vafs[which(is.na(vafs$cn)),]$cn = 2
+    vafs[which(is.na(vafs$cn)),]$cleancn = 2
   }
 
   return(vafs)
@@ -342,20 +358,20 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         if(cnCallsAreLog2){
             cn[,4] = (2^(cn[,4]))*2
         }
-        vafs = addCnToVafs(vafs,cn, copyNumberMargins)
+        vafs = addCnToVafs(vafs, cn, copyNumberMargins)
     }
     ##remove sex chromosomes if specified
     if(!(useSexChrs)){
         vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
     }
 
-    ##remove any sites with less than the minimum depth
-    vafs = vafs[vafs$depth >= minimumDepth,]
-    if(length(vafs$chr) == 0){
-        print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
-        stop()
-    }
-    print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
+    ## ##remove any sites with less than the minimum depth
+    ## vafs = vafs[vafs$depth >= minimumDepth,]
+    ## if(length(vafs$chr) == 0){
+    ##     print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
+    ##     stop()
+    ## }
+    ## print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
 
     return(vafs)
 

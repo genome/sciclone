@@ -27,7 +27,16 @@ sc.plot1d <- function(sco, outputFile,
 
   sampleNames = sco@sampleNames
   dimensions = sco@dimensions
-  clust = sco@clust
+
+  clust = NULL
+  if(overlayClusters){
+    if(is.null(sco@clust[1])){
+      print("ERROR: can't overlay clusters when clustering was not done on the input data")
+      return(0)
+    } else {
+      clust = sco@clust
+    }
+  }
 
   pdf(file=outputFile, width=3.3, height=7.5, bg="white");
 
@@ -95,7 +104,7 @@ sc.plot1d <- function(sco, outputFile,
       } else if(show1DHistogram & (i == 2)) {
 
         ## Only show histogram for copy number = 2
-        v = vafs[vafs$cn==2,];
+        v = vafs[vafs$cleancn==2,];
 
         frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
         bin.width <- 2.5
@@ -197,7 +206,7 @@ sc.plot1d <- function(sco, outputFile,
 
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
-        v = vafs[vafs$cn==i,];
+        v = vafs[vafs$cleancn==i,];
         drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
         axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
 
@@ -387,7 +396,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
     vafs = getOneSampleVafs(vafs.1d.merged[[d]], d, numClusters)
 
     # Only show copy number = 2
-    v = vafs[vafs$cn==2,];
+    v = vafs[vafs$cleancn==2,];
 
     frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
 
@@ -463,8 +472,8 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
 
       ##get only cn2 points
-      vafs1 = vafs1[vafs1$cn==2,]
-      vafs2 = vafs2[vafs2$cn==2,]
+      vafs1 = vafs1[vafs1$cleancn==2,]
+      vafs2 = vafs2[vafs2$cleancn==2,]
 
       v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
 
@@ -620,11 +629,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
 
       ##get only cn2 points
-      vafs1 = vafs1[vafs1$cn==2,]
-      vafs2 = vafs2[vafs2$cn==2,]
-      #CN DEFN
-      #vafs1 = vafs1[vafs1$cn>=1.5 & vafs1$cn<=2.5,]
-      #vafs2 = vafs2[vafs2$cn>=1.5 & vafs2$cn<=2.5,]
+      vafs1 = vafs1[vafs1$cleancn==2,]
+      vafs2 = vafs2[vafs2$cleancn==2,]
 
       if(!is.null(vafs.merged$cluster)) {
         v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
@@ -776,7 +782,7 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
     play3d(spin3d(axis=c(0,0,1), rpm=10), duration=6)
   } else {
     ##remove trailing .gif, since movie3d adds it
-    sub(".gif$","",outputFile)
+    outputFile = sub(".gif$","",outputFile)
     movie3d(spin3d(axis=c(0,0,1), rpm=10), duration=6, dir=getwd(), movie=outputFile)
   }
 }
