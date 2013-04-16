@@ -204,7 +204,6 @@ sc.plot1d <- function(sco, outputFile,
 
     ##-----------------------------------------------------
     ##create the scatterplots of vaf vs copy number
-
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
@@ -263,8 +262,8 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   #do we have any points to plot?
   if(length(data[,1]) > 0){
     ##if we have cluster assignments in col 8, color them
-    if(length(data) > 7 & overlayClusters & cn==2){
-      numClusters=max(data[,8],na.rm=T)
+    if(as.logical(grep("^cluster$",names(data))) & overlayClusters & cn==2){
+      numClusters=max(data[,c("cluster")],na.rm=T)
       cols = getClusterColors(numClusters)
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
@@ -480,7 +479,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
-        chr.start.v <- cbind(v[,1], v[,2])
+        chr.start.v <- cbind(v[,"chr"], v[,"st"])
         chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
 
@@ -660,7 +659,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       # a different symbol/color (a black *)
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
-        chr.start.v <- cbind(v[,1], v[,2])
+        chr.start.v <- cbind(v[,"chr"], v[,"st"])
         chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
 
