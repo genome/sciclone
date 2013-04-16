@@ -19,6 +19,10 @@
     boolean argument to decide whether to overlay cluster designations
     on the standard scatterplot output
   }
+  \item{overlayErrorBars}{
+    boolean argument to decide whether to overlay (binomial) error bars
+    on VAFs
+  }
   \item{ellipse.metadata}{
     description of ellipses for plotting cluster std errors/deviations
   }

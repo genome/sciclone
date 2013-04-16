@@ -33,7 +33,7 @@ sc.plot1d <- function(sco, outputFile,
   
   numClusters = 0
   if(!is.null(clust)) {
-    numClusters = max(clust$cluster.assignments)
+    numClusters = length(unique(clust$cluster.assignments))
   }
 
   ##one plot for each sample
@@ -177,7 +177,7 @@ sc.plot1d <- function(sco, outputFile,
 
 
     axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
-    mtext("Tumor Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
+    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
     mtext("Density (a.u.)",side=2,cex=0.5,padj=-4.2);
     
 
@@ -270,7 +270,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     ## add highlighted points selected for by user
     if(!(is.null(positionsToHighlight))){
       addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
-      if(length(addpts[,1]) > 1){
+      if(dim(addpts)[1] > 0){
         if(highlightsHaveNames){
           for(i in 1:length(addpts$vaf)){
             text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
@@ -316,9 +316,9 @@ addHighlightLegend <- function(data, positionsToHighlight){
 
   if(!(is.null(positionsToHighlight))){
     addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
-    if(length(addpts[,1]) > 1){
+    if(dim(addpts)[1] > 0){
       ypos=rev(seq(0,900,(900/13)))[1:13]
-      ncol=ceiling(length(addpts[,1])/13)
+      ncol=ceiling((dim(addpts)[1])/13)
       xpos=0;
       offset=1
       for(i in 1:ncol){
@@ -342,7 +342,7 @@ addHighlightLegend <- function(data, positionsToHighlight){
 ## clustering results and 1D plots along margins, this time using
 ## ggplot2
 
-plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlightsHaveNames=FALSE) {
+plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayErrorBars=FALSE) {
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
   vafs.1d.merged = sco@vafs.1d
@@ -483,16 +483,42 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       # Plot the points that we will not highlight
       frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
-      g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=clusters) 
+      cols=getClusterColors(length(unique(clusters)))
+      colvec = cols[clusters]
+
+      g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=colvec)
+
+      if(overlayErrorBars == TRUE) {
+        err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
+        err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
+        err.df.x <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, xmin=err.bars.1$lb, xmax=err.bars.1$ub)
+        g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour=colvec)
+
+        err.df.y <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
+        print(head(v.no.highlight[err.df.y$ymax > 70,]))
+        g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour=colvec)
+      } 
+      
 
       # Now overlay any points that we will highlight
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
-        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
+        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
+
         frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
         g <- g + geom_point(data = frequencies.highlight, aes(x=x, y=y), shape="*", size=10, colour="black")
+
+        if(overlayErrorBars == TRUE) {
+          err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
+          err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
+          err.df.x <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, xmin=err.bars.1$lb, xmax=err.bars.1$ub)
+          g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour="black")
+
+          err.df.y <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
+          g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour="black")
+      } 
 
       }
       
@@ -538,7 +564,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
         frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
         # Add the labels
-        if(length(addpts[,1]) > 1){
+        if(dim(addpts)[1] > 0){
           if(highlightsHaveNames){
 
             # This code adapted from stackoverflow.com/questions/10536396/using-grconvertx-grconverty-in-ggplot2
@@ -546,6 +572,11 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             # put text outside the plot
             depth <- downViewport('panel.3-4-3-4')
             pushViewport(dataViewport(xData=c(0,100), yData=c(0,100), clip='off'))
+
+            xs <- list()
+            ys <- list()
+            labels <- list()
+            
             for(i in 1:dim(addpts)[1]) {
               if(addpts$vaf.1[i] < 1) {
                 x <- addpts$vaf.1[i] - 12
@@ -557,11 +588,27 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
                 x <- addpts$vaf.1[i] + 5
                 y <- addpts$vaf.2[i] + 5
               }
-              label <- addpts$gene_name[i]
-              df <- data.frame(x=x, y=y)
-              grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+              label <- as.character(addpts$gene_name[i])
+              #df <- data.frame(x=x, y=y)
+              #grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+              xs[[i]] <- x
+              ys[[i]] <- y
+              labels[[i]] <- label
             }
 
+            xs <- unlist(xs)
+            ys <- unlist(ys)
+            labels <- unlist(labels)
+            num.labels <- length(labels)
+            library(TeachingDemos)
+            # By using the min argument, ensure that the annotations
+            # do not overlap the corresponding symbol.  NB:  we anticipate
+            # this code will only be active for the interior points
+            xs <- spread.labs(xs, mindiff=4, min=xs)
+            ys <- spread.labs(ys, mindiff=4, min=ys)            
+            for(i in 1:num.labels) {
+              grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+            }
             # Move up depth+1 in the tree.  NB: +1 because we pushed a
             # viewport on to the tree.
             upViewport(depth+1)
@@ -586,6 +633,18 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 }
 
 
+## Compute the lower and upper bound for a "1-std dev" binomial confidence
+## interval for a given number of successes and total number trials
+compute.binomial.error.bars <- function(successes, total.trials){
+  suppressPackageStartupMessages(library(MKmisc))
+  suppressPackageStartupMessages(library(NORMT3))
+  # Return a "1 std dev" confidence interval
+  width <- as.real(erf(1/sqrt(2)))
+  lb <- mapply(function(a,b) binomCI(a, b, conf.level=width, method="jeffreys")$CI[1], successes, total.trials)
+  ub <- mapply(function(a,b) binomCI(a, b, conf.level=width, method="jeffreys")$CI[2], successes, total.trials)
+  res <- data.frame(lb=lb, ub=ub)
+  return(res)
+}
 
 ##---------------------------------------------------------------------
 ## create the two dimensional plot with scatter annotated with
@@ -593,7 +652,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, ellipse.metadata = list()){
+sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list()){
   pdf(outputFile, width=7.2, height=6, bg="white")
 
   densityData = sco@densities
@@ -606,7 +665,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   if(!is.null(vafs.merged$cluster)) {
     numClusters = max(vafs.merged$cluster, na.rm=T)
   }
-  library(plotrix)
+  library(plotrix)  # For plotCI among others.
 
   
   ##create a 2d plot for each pairwise combination of samples
@@ -657,22 +716,47 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
 
       }
-      
+
+      if(overlayErrorBars == TRUE) {
+        err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
+        err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
+      } 
+
       if(!is.null(vafs.merged$cluster)) {      
         for(i in 1:numClusters){
+          indices <- v.no.highlight$cluster==i
           if(overlayClusters){
-            if(dim(v.no.highlight[v.no.highlight$cluster==i,])[1] > 0) {
-              points(v.no.highlight[v.no.highlight$cluster==i,]$vaf.1, v.no.highlight[v.no.highlight$cluster==i,]$vaf.2, col=cols[i], pch=i)
+            if(dim(v.no.highlight[indices,])[1] > 0) {
+              if(overlayErrorBars == TRUE) { 
+                #print(head(cbind(err.bars.1$lb[indices], err.bars.1$ub[indices])))
+                #print(head(cbind(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices])))
+                #df <- data.frame(x=v.no.highlight[indices,]$vaf.1, y=v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices])
+                #write.table(file="df.csv", df, sep=",", row.names=FALSE, col.names=FALSE)
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+              } else {
+                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i)
+              }
             }
           } else {
-            if(dim(v.no.highlight[v.no.highlight$cluster==i,])[1] > 0) {
-              points(v.no.highlight[v.no.highlight$cluster==i,]$vaf.1, v.no.highlight[v.no.highlight$cluster==i,]$vaf.2, pch=14)
+            if(dim(v.no.highlight[indices,])[1] > 0) {
+              if(overlayErrorBars == TRUE) { 
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+              } else {
+                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14)
+              }
             }
           }
         }
       } else {
         if(dim(v.no.highlight)[1] > 0) {
-          points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14)
+          if(overlayErrorBars == TRUE) { 
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
+          } else {
+            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14)
+          }
         }
       }
 
@@ -684,11 +768,17 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         
         # Plot the highlighted items.  NB:  we never overlay the
         # cluster on them, but expect this will be obvious from context
-        points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+        if(overlayErrorBars == TRUE) { 
+          err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
+          err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
+          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
+          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
+        } else {
+          points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+        }
 
       }
 
-      
       if(!is.null(vafs.merged$cluster)) {            
         for(i in 1:numClusters){
           if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
@@ -719,22 +809,57 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       if(!(is.null(positionsToHighlight))){
         addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
         # write.table(file="genes.txt", unique(addpts$gene_name), row.names=FALSE, col.names=FALSE, quote=FALSE)
-        if(length(addpts[,1]) > 1){
+        if(dim(addpts)[1] > 0){
           if(highlightsHaveNames){
+            xs <- list()
+            ys <- list()
+            labels <- list()
+
             for(i in 1:dim(addpts)[1]) {
               par(xpd=NA)
               cex <- 1
+            
               if(addpts$vaf.1[i] < 1) {
-                text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
+                #text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
+                x <- addpts$vaf.1[i] - 8
+                y <- addpts$vaf.2[i]
               } else if(addpts$vaf.2[i] < 1) {
-                text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
+                #text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
+                x <- addpts$vaf.1[i]
+                y <- addpts$vaf.2[i] - 5                
               } else { 
-                text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
+                #text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
+                x <- addpts$vaf.1[i] + 4
+                y <- addpts$vaf.2[i] + 4
               }
+              label <- as.character(addpts$gene_name[i])
+              #df <- data.frame(x=x, y=y)
+              #grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+              xs[[i]] <- x
+              ys[[i]] <- y
+              labels[[i]] <- label
             }
+
+            xs <- unlist(xs)
+            ys <- unlist(ys)
+            labels <- unlist(labels)
+            num.labels <- length(labels)
+            library(TeachingDemos)
+            # By using the min argument, ensure that the annotations
+            # do not overlap the corresponding symbol.  NB:  we anticipate
+            # this code will only be active for the interior points
+            xs <- spread.labs(xs, mindiff=4, min=xs)
+            ys <- spread.labs(ys, mindiff=4, min=ys)            
+            for(i in 1:num.labels) {
+              #grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+              text(x=xs[i], y=ys[i], label=labels[i], cex=cex)
+            }
+
+
           }
         }
       } # End add gene annotations
+
     }
   }
   devoff = dev.off()
