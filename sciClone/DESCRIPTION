@@ -8,4 +8,4 @@ LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends: IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix,
         methods, NORMT3, MKmisc, TeachingDemos
-Packaged: 2013-04-16 07:40:03 PM; cmiller
+Packaged: 2013-04-16 07:53:43 PM; cmiller
