@@ -72,9 +72,15 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     }
 
     #replace any values of zero with a very small number to prevent errors
-    delta <- .Machine$double.eps
-    vafs[which(vafs==0)] = delta
+    # NB:  It seems OK to add .Machine$double.eps (without the factor of 100)
+    # to 0 to avoid trouble, but subtracting from 1 is not sufficient.  Presumably,
+    # there isn't enough accuracy to represent such a number and it is stored as 1.
+    delta <- 100 * .Machine$double.eps
+    vafs[which(vafs <= delta)] = delta
 
+    #also replace any values of one to prevent errors
+    vafs[which(vafs >= (1-delta))] = 1 - delta
+    
     ## Initialize the hyperparameters of the Beta mixture model (bmm).
     hyperparams <- init.bmm.hyperparameters(vafs, initialClusters)
 

@@ -263,7 +263,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   #do we have any points to plot?
   if(length(data[,1]) > 0){
     ##if we have cluster assignments in col 8, color them
-    if(as.logical(grep("^cluster$",names(data))) & overlayClusters & cn==2){
+    if(any(grepl(pattern="^cluster$",names(data))) & overlayClusters & cn==2){
       numClusters=max(data[,c("cluster")],na.rm=T)
       cols = getClusterColors(numClusters)
       for(i in 1:numClusters){
