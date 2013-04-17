@@ -42,7 +42,7 @@ sc.plot1d <- function(sco, outputFile,
 
   numClusters = 0
   if(!is.null(clust)) {
-    numClusters = length(unique(clust$cluster.assignments))
+    numClusters = max(clust$cluster.assignments)
   }
 
   ##one plot for each sample
@@ -885,7 +885,7 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
 
   a = sco@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
   a = a[!is.na(a$cluster),]
-  numClusters=length(unique(a$cluster))
+  numClusters=max(a$cluster)
   cols=getClusterColors(numClusters)
   colvec = cols[a$cluster]
 

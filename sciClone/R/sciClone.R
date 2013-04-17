@@ -262,10 +262,11 @@ addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
     }
   }
 
-  if(length(which(is.na(vafs$cn))) > 0){
+  indices <- which(is.na(vafs$cn))
+  if(length(indices) > 0){
     print("Not all variants fall within a provided copy number region. The copy number of these variants is assumed to be 2.")
-    vafs[which(is.na(vafs$cn)),]$cn = 2
-    vafs[which(is.na(vafs$cn)),]$cleancn = 2
+    vafs[indices,]$cn = 2
+    vafs[indices,]$cleancn = 2
   }
 
   return(vafs)
