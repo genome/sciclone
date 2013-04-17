@@ -706,8 +706,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       if(!is.null(vafs.merged$cluster)) {
         v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
-        v$cluster[v$cluster == 0] <- 1
         # Remove any outliers--these will have cluster assignment 0
+        v.outlier <- v[v$cluster == 0,]
         v <- v[v$cluster != 0,]
       } else {
         v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
