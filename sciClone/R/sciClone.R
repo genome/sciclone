@@ -348,8 +348,8 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     }
 
     ##add depth
-    vafs = vafs[vafs$vaf > 0,]
-    vafs$depth = round(vafs$var/(vafs$vaf/100))
+    vafs = vafs[vafs$vaf > 0 | ( vafs$var + vafs$ref ) > 0,]
+    vafs$depth = mapply(function(var, ref, vaf) ifelse(vaf == 0, var + ref, round(var/(vaf/100))), vafs$var, vafs$ref, vafs$vaf)
 
     ##add cn calls
     if(is.null(cn)){
