@@ -14,7 +14,7 @@
              sampleNames, minimumDepth=100, clusterMethod="bmm", clusterParams=NULL,
              purities=NULL, cnCallsAreLog2=FALSE, useSexChrs=TRUE,
              doClustering=TRUE, verbose=TRUE, copyNumberMargins=0.25,
-             maximumClusters=10)
+             maximumClusters=10, annotation=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -47,6 +47,10 @@
   \item{maximumClusters}{
     max number of clusters to consider when chosing the best component
     fit to the data.
+  }
+  \item{annotation}{
+    a list of positions in 3-column format 1) chromosome 2) position 3)
+    gene name.  These will be used to annotate the cluster table, if output.
   }
   \item{purities}{
     Purity estimation for a tumor sample (integer from 1 to 100). If not

@@ -14,7 +14,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      sampleNames, minimumDepth=100, clusterMethod="bmm",
                      clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
-                     copyNumberMargins=0.25, maximumClusters=10){
+                     copyNumberMargins=0.25, maximumClusters=10, annotation=NULL){
 
   if(verbose){print("checking input data...")}
 
@@ -58,7 +58,6 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       regionsToExclude = list(regionsToExclude);
     }
   }
-
 
 
   ##-----------------------------------------
@@ -105,7 +104,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.merged = merge(vafs.merged, vafs[[i]], by.x=c(1,2), by.y=c(1,2), suffixes=c(i-1,i), all.x=TRUE, all.y=TRUE)
     }
   }
-
+  
   refcols = grep("^ref",names(vafs.merged))
   varcols = grep("^var",names(vafs.merged))
   vafcols = grep("^vaf",names(vafs.merged))
@@ -129,12 +128,12 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   #determine whether there is adequate depth at each site in all samples
   adequateDepth =  rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
-    if(length(which(vafs.merged[i,depthcols] > minimumDepth)) < length(depthcols)){
+    if(length(which(vafs.merged[i,depthcols] >= minimumDepth)) < length(depthcols)){
       adequateDepth[i] = 0
     }
   }
   vafs.merged$adequateDepth=adequateDepth
-  
+
   #determine whether all samples are copy number neutral at each site
   cnNeutral = rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
@@ -215,6 +214,10 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
       vafs.1d[[i]] = vafs.1d.merged
     }
+  }
+
+  if(!is.null(annotation)) {
+    vafs.merged = merge(vafs.merged, annotation, by.x=c(1,2), by.y=c(1,2), all.x=TRUE, all.y=FALSE)
   }
   return(new("scObject", clust=clust, densities=densityData, dimensions=dimensions,  marginalClust=marginalClust,
              sampleNames=sampleNames, vafs.1d=vafs.1d, vafs.merged=vafs.merged))

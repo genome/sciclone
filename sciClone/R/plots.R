@@ -431,10 +431,13 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
     scale <- max.density / max.posterior.density
 
-    f <- splinefun(marginalClust[[d]]$fit.x, scale*marginalClust[[d]]$fit.y[1,,drop=FALSE])
+    # If we actually performed clustering, show it.
+    if(numClusters > 0) {
+      f <- splinefun(marginalClust[[d]]$fit.x, scale*marginalClust[[d]]$fit.y[1,,drop=FALSE])
 
-    g <- g + stat_function(data = limits, fun=f, mapping=aes(x))
-
+      g <- g + stat_function(data = limits, fun=f, mapping=aes(x))
+    }
+      
     g <- g + coord_cartesian(ylim=c(xmin, max.density*1.1), xlim=c(xmin,xmax))
 
     plots.1d.list[[d]] <- g
@@ -476,8 +479,15 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
       vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
 
-      v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
-
+      if(numClusters > 0) {
+        v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
+        # Remove any outliers--these will have cluster assignment 0
+        v.outlier <- v[v$cluster == 0,]
+        v <- v[v$cluster != 0,]
+      } else {
+        v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
+      }
+      
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
         chr.start.v <- cbind(v[,"chr"], v[,"st"])
@@ -488,16 +498,20 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       title <- ""
 
-      clusters <- v.no.highlight$cluster
 
       # Plot the points that we will not highlight
       frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
-      cols=getClusterColors(length(unique(clusters)))
-      colvec = cols[clusters]
+      if(numClusters > 0) {
+        clusters <- v.no.highlight$cluster
+        cols=getClusterColors(numClusters)
+        colvec = cols[clusters]
 
-      g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=colvec)
-
+        g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=colvec)
+      } else {
+        g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y))
+      }
+      
       if(overlayErrorBars == TRUE) {
         err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
         err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
@@ -514,19 +528,21 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
         addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-        frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
+        if(dim(addpts)[1] > 0) {
+          frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
-        g <- g + geom_point(data = frequencies.highlight, aes(x=x, y=y), shape="*", size=10, colour="black")
+          g <- g + geom_point(data = frequencies.highlight, aes(x=x, y=y), shape="*", size=10, colour="black")
 
-        if(overlayErrorBars == TRUE) {
-          err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
-          err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
-          err.df.x <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, xmin=err.bars.1$lb, xmax=err.bars.1$ub)
-          g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour="black")
+          if(overlayErrorBars == TRUE) {
+            err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
+            err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
+            err.df.x <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, xmin=err.bars.1$lb, xmax=err.bars.1$ub)
+            g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour="black")
 
-          err.df.y <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
-          g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour="black")
-      } 
+            err.df.y <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
+            g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour="black")
+          }
+        } 
 
       }
       
@@ -545,7 +561,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       g <- g + coord_cartesian(xlim=c(xmin, xmax), ylim=c(xmin, xmax))
 
       plot.2d <- g
-
+      
       # Code to override clipping
       #plot.2d <- ggplot_gtable(ggplot_build(g))
       #plot.2d$layout$clip[plot.2d$layout$name=="panel"] <- "off"
@@ -690,6 +706,9 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       if(!is.null(vafs.merged$cluster)) {
         v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
+        v$cluster[v$cluster == 0] <- 1
+        # Remove any outliers--these will have cluster assignment 0
+        v <- v[v$cluster != 0,]
       } else {
         v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
       }
@@ -731,10 +750,6 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
           if(overlayClusters){
             if(dim(v.no.highlight[indices,])[1] > 0) {
               if(overlayErrorBars == TRUE) { 
-                #print(head(cbind(err.bars.1$lb[indices], err.bars.1$ub[indices])))
-                #print(head(cbind(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices])))
-                #df <- data.frame(x=v.no.highlight[indices,]$vaf.1, y=v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices])
-                #write.table(file="df.csv", df, sep=",", row.names=FALSE, col.names=FALSE)
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
@@ -771,13 +786,15 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
         # Plot the highlighted items.  NB:  we never overlay the
         # cluster on them, but expect this will be obvious from context
-        if(overlayErrorBars == TRUE) { 
-          err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
-          err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
-          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
-          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
-        } else {
-          points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+        if(dim(addpts)[1] > 0) {
+          if(overlayErrorBars == TRUE) { 
+            err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
+            err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
+            plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
+            plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
+          } else {
+            points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+          }
         }
 
       }
