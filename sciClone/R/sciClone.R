@@ -46,21 +46,21 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     print("No copy number files specified. Assuming all variants have a CN of 2.")
     copyNumberCalls = vector("list",dimensions)
   }
-  
+
   if(!(is.null(purities))){
     if(length(purities) != dimensions){
       stop(paste("the number of input purities calls(",length(purities),") does not equal the number of input samples (",dimensions,")\nEither provide a purity for each sample, or set purities to NULL and it will be estimated for you",sep=""))
     }
   }
-  
+
   if(!is.null(regionsToExclude)){
     if(is.data.frame(regionsToExclude)){
       regionsToExclude = list(regionsToExclude);
     }
   }
-  
-  
-  
+
+
+
   ##-----------------------------------------
   if(verbose){print("calculating kernel density and purity")}
 
@@ -81,7 +81,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     } else {
       densityData= c(densityData, list(getDensity(vafs[[i]])))
     }
-    
+
     ## This stop should probably be replaced so that plotting can take place
     ## for tumors with ployplody, even if we can't cluster
     ## (maybe we should even cluster with 3x regions, etc - put it on the todo list)
@@ -105,47 +105,63 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.merged = merge(vafs.merged, vafs[[i]], by.x=c(1,2), by.y=c(1,2), suffixes=c(i-1,i), all.x=TRUE, all.y=TRUE)
     }
   }
-  
+
   refcols = grep("^ref",names(vafs.merged))
   varcols = grep("^var",names(vafs.merged))
   vafcols = grep("^vaf",names(vafs.merged))
   depthcols = grep("^depth",names(vafs.merged))
   cncols = grep("^cn",names(vafs.merged))
+  cleancncols = grep("^cleancn",names(vafs.merged))
+
   ##change NA values introduced by merge to ref/var/vaf/depth of zero, cn of 2
   for(i in c(vafcols,refcols,varcols,depthcols)){
     vafs.merged[is.na(vafs.merged[,i]),i] = 0;
   }
-  for(i in cncols){
-    vafs.merged[is.na(vafs.merged[,i]),i] = 2;
-  }
-  
+
   #add sample names to make output pretty
   names(vafs.merged)[refcols] = paste(sampleNames,".ref",sep="")
   names(vafs.merged)[varcols] = paste(sampleNames,".var",sep="")
   names(vafs.merged)[vafcols] = paste(sampleNames,".vaf",sep="")
   names(vafs.merged)[depthcols] = paste(sampleNames,".depth",sep="")
-  names(vafs.merged)[cncols] = paste(sampleNames,".cn",sep="")  
-  
-  ## remove any lines where all CN columns are not 2
-  ## we only cluster based on sites that are CN neutral in all samples
-  ## there is probably a better way to do this with an apply function...
-  cnNeutral = rep(1,length(vafs.merged[,1]))
+  names(vafs.merged)[cncols] = paste(sampleNames,".cn",sep="")
+  names(vafs.merged)[cleancncols] = paste(sampleNames,".cleancn",sep="")
+
+  #determine whether there is adequate depth at each site in all samples
+  adequateDepth =  rep(1,length(vafs.merged[,1]))
   for(i in 1:length(vafs.merged[,1])){
-    if(sum(as.numeric(vafs.merged[i,cncols]==2)) < length(cncols)){
-      cnNeutral[i] = 0
+    if(length(which(vafs.merged[i,depthcols] > minimumDepth)) < length(depthcols)){
+      adequateDepth[i] = 0
     }
   }
-  vafs.merged.cn2 = vafs.merged[as.logical(cnNeutral),]
+  vafs.merged$adequateDepth=adequateDepth
+  
+  #determine whether all samples are copy number neutral at each site
+  cnNeutral = rep(1,length(vafs.merged[,1]))
+  for(i in 1:length(vafs.merged[,1])){
+    for(j in cleancncols){
+      if(is.na(vafs.merged[i,j])){
+        cnNeutral[i] = 0
+      } else if(vafs.merged[i,j] != 2){ 
+        cnNeutral[i] = 0
+      }
+    }
+  }
+
+  ## remove any lines where all clean CN columns are not 2 and depth is adequate
+  ## we only cluster based on sites that are CN neutral in all samples
+  vafs.merged.cn2 = vafs.merged[(as.logical(cnNeutral) & as.logical(adequateDepth)),]
   if(length(vafs.merged.cn2[,1]) < 1){
-    print("ERROR: no sites are copy number neutral in all samples")
+    print("ERROR: no sites are copy number neutral and have adequate depth in all samples")
     return(NULL);
   }
 
+  print(paste(length(vafs.merged.cn2[,1]),"sites are copy number neutral and have adequate depth in all samples"))
+  
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
   vafs.merged.orig <- vafs.merged
   vafs.merged.cn2.orig <- vafs.merged.cn2
-  
+
   #convert to a matrix to feed into clustering
   vafs.matrix = as.matrix(vafs.merged.cn2[,vafcols])
   #convert vafs to be between 0 and 1
@@ -153,7 +169,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
   ##---------------------------------------------------
   ##do the clustering
-  clust=NULL
+  clust=list(NULL)
   if(doClustering){
     if(verbose){print("clustering...")}
     clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
@@ -161,10 +177,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
   numClusters=0
-  if(!(is.null(clust))){
+  if(!(is.null(clust[[1]]))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
     #append (hard and fuzzy) cluster assignments
-
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster.prob=clust$cluster.probabilities)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
@@ -172,7 +187,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
     print(paste("found",numClusters,"clusters"))
   }
-
+  
   # Show a 1D projection of the data along the axes for multidimensional data.
   showMarginalData <- TRUE
   #showMarginalData <- FALSE
@@ -216,9 +231,10 @@ writeClusterTable <- function(sco, outputFile){
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##
-addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
-  library(IRanges)  
+addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
+  library(IRanges)
   vafs$cn = NA
+  vafs$cleancn = NA
   ##for each chromosome
   for(chr in names(table(vafs$chr))){
     vars = IRanges(start=vafs[vafs$chr==chr,]$st, end=vafs[vafs$chr==chr,]$st)
@@ -242,13 +258,14 @@ addCnToVafs <- function(vafs,cncalls, copyNumberMargins){
   for(n in 1:4){
     pos = which(vafs$cn >= (n-copyNumberMargins) & vafs$cn < (n+copyNumberMargins))
     if(length(pos) > 0){
-      vafs[pos,]$cn = n
+      vafs[pos,]$cleancn = n
     }
   }
-    
+
   if(length(which(is.na(vafs$cn))) > 0){
     print("Not all variants fall within a provided copy number region. The copy number of these variants is assumed to be 2.")
     vafs[which(is.na(vafs$cn)),]$cn = 2
+    vafs[which(is.na(vafs$cn)),]$cleancn = 2
   }
 
   return(vafs)
@@ -273,7 +290,7 @@ excludeRegions <- function(vafs,regionsToExclude){
   #sort the list
   regs = regs[order(regs[,1], regs[,2]),]
 
-  
+
   library(IRanges);
   ##for each chromosome, find variants falling inside regions to be excluded
   for(chr in names(table(regs[,1]))){
@@ -294,7 +311,7 @@ excludeRegions <- function(vafs,regionsToExclude){
       }
     }
   }
-  
+
   return(vafs)
 } # end excludeRegions
 
@@ -308,14 +325,14 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     ##remove MT values
     vafs = vafs[!(vafs$chr == "M" | vafs$chr == "MT"),]
     if(length(vafs[,1]) == 0){return(vafs)}
-    
+
     ##remove NA sites
     vafs = vafs[!(is.na(vafs$vaf)),]
     if(length(vafs[,1]) == 0){return(vafs)}
 
     ##remove duplicate sites
     vafs = unique(vafs)
-    
+
     ##make sure columns are numeric
     for(i in 2:5){
       if(!(is.numeric(vafs[,i]))){
@@ -323,13 +340,13 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         stop();
       }
     }
-    
+
     ##remove sites in excludedRegions
     if(!is.null(regionsToExclude)){
       vafs = excludeRegions(vafs,regionsToExclude);
       if(length(vafs[,1]) == 0){return(vafs)}
     }
-    
+
     ##add depth
     vafs = vafs[vafs$vaf > 0,]
     vafs$depth = round(vafs$var/(vafs$vaf/100))
@@ -338,24 +355,25 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
     if(is.null(cn)){
         ##assume all sites are 2x if no cn info
         vafs$cn = 2;
+        vafs$cleancn = 2;
     } else {
         if(cnCallsAreLog2){
             cn[,4] = (2^(cn[,4]))*2
         }
-        vafs = addCnToVafs(vafs,cn, copyNumberMargins)
+        vafs = addCnToVafs(vafs, cn, copyNumberMargins)
     }
     ##remove sex chromosomes if specified
     if(!(useSexChrs)){
         vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
     }
 
-    ##remove any sites with less than the minimum depth
-    vafs = vafs[vafs$depth >= minimumDepth,]
-    if(length(vafs$chr) == 0){
-        print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
-        stop()
-    }
-    print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
+    ## ##remove any sites with less than the minimum depth
+    ## vafs = vafs[vafs$depth >= minimumDepth,]
+    ## if(length(vafs$chr) == 0){
+    ##     print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
+    ##     stop()
+    ## }
+    ## print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
 
     return(vafs)
 
@@ -369,7 +387,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
 getPurity <- function(peakPos){
   purity = 0
     if(length(peakPos[[2]][peakPos[[2]] <= 60]) > 0){
-        purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;        
+        purity = max(peakPos[[2]][peakPos[[2]] <= 50])*2;
         if(length(peakPos[[2]][peakPos[[2]] > 50]) > 0){
             nextHighestPeak = min(peakPos[[2]][peakPos[[2]] > 50]);
             ##if the peak is between 50 and 60, assume that it's noise and
@@ -419,7 +437,7 @@ getDensity <- function(vafs){
                 ##find the peaks
                 p = c(getPeaks(factors[[i]]),FALSE,FALSE)
                 peakPos[[i]] = densities[[i]]$x[p]
-                peakHeights[[i]] = factors[[i]][p]                
+                peakHeights[[i]] = factors[[i]][p]
                 ##store the largest density for use in scaling the plots later
                 if(max(factors[[i]]) > maxDensity){
                     maxDensity = max(factors[[i]])
@@ -429,7 +447,7 @@ getDensity <- function(vafs){
                 peakPos[[i]] = peakPos[[i]][keep]
                 peakHeights[[i]] = peakPos[[i]][keep]
             }
-            
+
 
             ##store the largest depth for use in scaling the plots later
             if(max(v$depth) > maxDepth){
@@ -460,6 +478,6 @@ getPeaks<-function(series,span=3){
     result <- c(rep(FALSE,s),v);
     result <- result[1:(length(result)-s)];
     return(result)
-}
+  }
 
 

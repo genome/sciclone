@@ -83,13 +83,12 @@ sc = sciClone(vafs=list(v1,v2,v3),
               regionsToExclude=list(reg1,reg1))
 if(!(is.null(sc))){
   print("ERROR - this should have failed, because there are no cn-neutral points in all three samples")
-  stop()
 }
 
 
 cat("\n")
 cat("=========================================================\n")
-cat("Test 3.1 - three samples - should succeeded")
+cat("Test 3.1 - three samples - should succeed")
 cat("\n")
 #run two samples
 sc = sciClone(vafs=list(v1,v2,v3),

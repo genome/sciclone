@@ -9,28 +9,37 @@ sc.plot1d <- function(sco, outputFile,
 
 
   #sanity checks
-  if(highlightsHaveNames){      
+  if(highlightsHaveNames){
     if(!(is.null(positionsToHighlight))){
       if(length(positionsToHighlight) < 3){
         print("ERROR: named plot requires names in the third column of the positionsToHighlight data frame")
         return(0)
-      } 
+      }
       plotOnlyCN2=TRUE
     } else {
       print("ERROR: highlightsHaveNames requires a 3-column dataframe of positions and names (chr, pos, name)");
       return(0);
-    }    
+    }
   }
-  
+
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
 
   sampleNames = sco@sampleNames
   dimensions = sco@dimensions
-  clust = sco@clust
-  
+
+  clust = NULL
+  if(overlayClusters){
+    if(is.null(sco@clust[1])){
+      print("ERROR: can't overlay clusters when clustering was not done on the input data")
+      return(0)
+    } else {
+      clust = sco@clust
+    }
+  }
+
   pdf(file=outputFile, width=3.3, height=7.5, bg="white");
-  
+
   numClusters = 0
   if(!is.null(clust)) {
     numClusters = length(unique(clust$cluster.assignments))
@@ -69,7 +78,8 @@ sc.plot1d <- function(sco, outputFile,
       cnToPlot = 1:4
     }
     ##grab only the vafs for this sample:
-    vafs = getOneSampleVafs(vafs.merged, d, numClusters);
+    vafs = getOneSampleVafs(vafs.merged, name, numClusters);
+
     ##colors for different copy numbers
     colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
 
@@ -95,7 +105,7 @@ sc.plot1d <- function(sco, outputFile,
       } else if(show1DHistogram & (i == 2)) {
 
         ## Only show histogram for copy number = 2
-        v = vafs[vafs$cn==2,];
+        v = vafs[which(vafs$cleancn==2 & vafs$adequateDepth==1),];
 
         frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
         bin.width <- 2.5
@@ -132,7 +142,7 @@ sc.plot1d <- function(sco, outputFile,
         }
       }
     }
-    
+
     ##legend
     lcol=colors
     lty = c(1,1,1,1)
@@ -158,19 +168,19 @@ sc.plot1d <- function(sco, outputFile,
       }
     }
     if(!(is.null(clust))){
-      leg = c(leg,"Model Fit")      
+      leg = c(leg,"Model Fit")
       lcol = c(lcol, "grey50")
       lty = c(lty, model.style)
       lwd = c(lwd, model.width)
       pt.bgs = c(pt.bgs, "grey50")
       pchs = c(pchs, NA)
       if(overlayIndividualModels==TRUE) {
-        leg = c(leg,"Component Fits")      
-        lcol = c(lcol, "grey50")        
+        leg = c(leg,"Component Fits")
+        lcol = c(lcol, "grey50")
         lty = c(lty, individual.model.style)
         lwd = c(lwd, 2)
         pt.bgs = c(pt.bgs, "grey50")
-        pchs = c(pchs, NA)        
+        pchs = c(pchs, NA)
       }
     }
     legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
@@ -179,7 +189,7 @@ sc.plot1d <- function(sco, outputFile,
     axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
     mtext("Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
     mtext("Density (a.u.)",side=2,cex=0.5,padj=-4.2);
-    
+
 
     ##add a title to the plot
     if(showTitle){
@@ -197,7 +207,7 @@ sc.plot1d <- function(sco, outputFile,
 
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
-        v = vafs[vafs$cn==i,];
+        v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
         drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
         axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
 
@@ -211,7 +221,7 @@ sc.plot1d <- function(sco, outputFile,
         }
       }
     }
-  }    
+  }
   ##close the pdf
   devoff <- dev.off();
 }
@@ -253,8 +263,8 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   #do we have any points to plot?
   if(length(data[,1]) > 0){
     ##if we have cluster assignments in col 8, color them
-    if(length(data) > 7 & overlayClusters & cn==2){
-      numClusters=max(data[,8],na.rm=T)
+    if(as.logical(grep("^cluster$",names(data))) & overlayClusters & cn==2){
+      numClusters=max(data[,c("cluster")],na.rm=T)
       cols = getClusterColors(numClusters)
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
@@ -269,8 +279,8 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
 
     ## add highlighted points selected for by user
     if(!(is.null(positionsToHighlight))){
-      addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
-      if(dim(addpts)[1] > 0){
+      addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+      if(length(addpts[,1]) > 1){
         if(highlightsHaveNames){
           for(i in 1:length(addpts$vaf)){
             text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
@@ -315,8 +325,8 @@ addHighlightLegend <- function(data, positionsToHighlight){
   names(positionsToHighlight)=c("chr","st","name");
 
   if(!(is.null(positionsToHighlight))){
-    addpts = merge(data, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
-    if(dim(addpts)[1] > 0){
+    addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+    if(length(addpts[,1]) > 1){
       ypos=rev(seq(0,900,(900/13)))[1:13]
       ncol=ceiling((dim(addpts)[1])/13)
       xpos=0;
@@ -350,19 +360,19 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
   dimensions = sco@dimensions
   clust = sco@clust
   marginalClust = sco@marginalClust
-  
+
   library(grid)
   library(ggplot2)
 
   plots.1d.list <- list()
   res.1d.max.densities <- list()
-  
+
   xmin <- -5
   xmax <- 105
 
   tmp.file <- tempfile("outputFile.tmp")
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
-  
+
   # Create (and store) all possible 1D plots
   for(d in 1:dimensions){
     # Overlay the histogram of the data on the model fit.
@@ -383,11 +393,11 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
     if(!is.null(vafs.1d.merged[[d]]$cluster)) {
       numClusters = max(vafs.1d.merged[[d]]$cluster, na.rm=T)
     }
-    
-    vafs = getOneSampleVafs(vafs.1d.merged[[d]], d, numClusters)
+
+    vafs = getOneSampleVafs(vafs.1d.merged[[d]], sampleNames[d], numClusters)
 
     # Only show copy number = 2
-    v = vafs[vafs$cn==2,];
+    v = vafs[which(vafs$cleancn==2 & vafs$adequateDepth==1),];
 
     frequencies <- data.frame(x=v$vaf, row.names=NULL, stringsAsFactors=NULL)
 
@@ -395,10 +405,10 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
     # g <- g + theme_bw() + theme(axis.line = element_line(colour = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
 
-    g <- g + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())    
+    g <- g + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
 
     g <- g + theme(plot.margin = unit(c(0,0,0,0), "cm"))
-    
+
     bin.width <- 2.5
     num.breaks <- ceiling(100/bin.width) + 1
     breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
@@ -417,7 +427,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
     #vline <- data.frame(y = c(0,max.density * 1.1), x=c(-5,-5))
     vline <- data.frame(y = c(0,100), x=c(-5,-5))
-    g <- g + geom_line(data = vline, aes(x,y))      
+    g <- g + geom_line(data = vline, aes(x,y))
 
     scale <- max.density / max.posterior.density
 
@@ -432,7 +442,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
   devoff = dev.off()
   unlink(tmp.file)
-  
+
   vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y, clip="off")
 
   pdf(file=outputFile, width=7.2, height=6, bg="white")
@@ -458,20 +468,20 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       if(!is.null(vafs.merged$cluster)) {
         numClusters = max(vafs.merged$cluster, na.rm=T)
       }
-      
-      vafs1 = getOneSampleVafs(vafs.merged, d1, numClusters);
-      vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
-      
-      ##get only cn2 points
-      vafs1 = vafs1[vafs1$cn==2,]
-      vafs2 = vafs2[vafs2$cn==2,]
 
-      v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
+      vafs1 = getOneSampleVafs(vafs.merged, sampleNames[d1], numClusters);
+      vafs2 = getOneSampleVafs(vafs.merged, sampleNames[d2], numClusters);
+
+      ##get only cn2 points
+      vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
+      vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
+
+      v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
 
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
-        chr.start.v <- cbind(v[,1], v[,2])
-        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])        
+        chr.start.v <- cbind(v[,"chr"], v[,"st"])
+        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
 
       }
@@ -479,7 +489,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       title <- ""
 
       clusters <- v.no.highlight$cluster
-      
+
       # Plot the points that we will not highlight
       frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
@@ -495,7 +505,6 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
         g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour=colvec)
 
         err.df.y <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
-        print(head(v.no.highlight[err.df.y$ymax > 70,]))
         g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour=colvec)
       } 
       
@@ -504,8 +513,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
-        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
-
+        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
         frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
         g <- g + geom_point(data = frequencies.highlight, aes(x=x, y=y), shape="*", size=10, colour="black")
@@ -532,10 +540,10 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       g <- g + geom_line(data = hline, aes(x,y))
 
       vline <- data.frame(y = c(0,100), x=c(-5,-5))
-      g <- g + geom_line(data = vline, aes(x,y))      
+      g <- g + geom_line(data = vline, aes(x,y))
 
       g <- g + coord_cartesian(xlim=c(xmin, xmax), ylim=c(xmin, xmax))
-      
+
       plot.2d <- g
 
       # Code to override clipping
@@ -560,7 +568,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
-        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
+        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
         frequencies.highlight <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
         # Add the labels
@@ -583,7 +591,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
                 y <- addpts$vaf.2[i]
               } else if(addpts$vaf.2[i] < 1) {
                 x <- addpts$vaf.1[i]
-                y <- addpts$vaf.2[i] - 10                
+                y <- addpts$vaf.2[i] - 10
               } else {
                 x <- addpts$vaf.1[i] + 5
                 y <- addpts$vaf.2[i] + 5
@@ -613,8 +621,8 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             # viewport on to the tree.
             upViewport(depth+1)
           }
-        }        
-        
+        }
+
       }
 
       vp <- vplayout(1,2)
@@ -626,7 +634,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       plot.1d.1 <- plot.1d.1 + theme(text = element_text(size = text.size))
       print(plot.1d.1, vp=vp)
 
-      
+
     }
   }
   devoff = dev.off()
@@ -667,28 +675,23 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   }
   library(plotrix)  # For plotCI among others.
 
-  
+
   ##create a 2d plot for each pairwise combination of samples
   for(d1 in 1:(dimensions-1)){
     for(d2 in d1:dimensions){
       if(d1==d2){
         next
       }
+      vafs1 = getOneSampleVafs(vafs.merged, sampleNames[d1], numClusters);
+      vafs2 = getOneSampleVafs(vafs.merged, sampleNames[d2], numClusters);
+      ##get only cn2 points with adequate coverage
+      vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
+      vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
 
-      vafs1 = getOneSampleVafs(vafs.merged, d1, numClusters);
-      vafs2 = getOneSampleVafs(vafs.merged, d2, numClusters);
-
-      ##get only cn2 points
-      vafs1 = vafs1[vafs1$cn==2,]
-      vafs2 = vafs2[vafs2$cn==2,]
-      #CN DEFN      
-      #vafs1 = vafs1[vafs1$cn>=1.5 & vafs1$cn<=2.5,]
-      #vafs2 = vafs2[vafs2$cn>=1.5 & vafs2$cn<=2.5,]      
-
-      if(!is.null(vafs.merged$cluster)) {            
-        v = merge(vafs1,vafs2,by.x=c(1,2,8), by.y=c(1,2,8),suffixes=c(".1",".2"))
+      if(!is.null(vafs.merged$cluster)) {
+        v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
       } else {
-        v = merge(vafs1,vafs2,by.x=c(1,2), by.y=c(1,2),suffixes=c(".1",".2"))
+        v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
       }
 
       cols = getClusterColors(numClusters)
@@ -700,7 +703,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       abline(v=seq(0,100,20),col="grey50", lty=3)
 
       segments(rep(-10,5),seq(0,100,20),rep(105,5),seq(0,100,20), lty=3, col="grey50")
-               
+
       #abline(h=seq(0,100,20),col="grey50", lty=3)
 
       axis(side=1,at=seq(0,100,20),labels=seq(0,100,20))
@@ -711,8 +714,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       # a different symbol/color (a black *)
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
-        chr.start.v <- cbind(v[,1], v[,2])
-        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])        
+        chr.start.v <- cbind(v[,"chr"], v[,"st"])
+        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
 
       }
@@ -764,8 +767,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
-        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))        
-        
+        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+
         # Plot the highlighted items.  NB:  we never overlay the
         # cluster on them, but expect this will be obvious from context
         if(overlayErrorBars == TRUE) { 
@@ -779,7 +782,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       }
 
-      if(!is.null(vafs.merged$cluster)) {            
+
+      if(!is.null(vafs.merged$cluster)) {
         for(i in 1:numClusters){
           if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
             xc <- ellipse.metadata$SEMs.lb[i,d1] + ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2)
@@ -788,7 +792,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             # ell <- my.ellipse(hlaxa = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), hlaxb = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2), xc = xc, yc = yc)
 
             draw.ellipse(xc, yc, a = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), b = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2))
-                                      
+
           }
 
           if((!is.null(ellipse.metadata$std.dev.lb)) & (!is.null(ellipse.metadata$std.dev.ub))) {
@@ -798,16 +802,16 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             # Plot std dev as dashed line.
             draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
           }
-        }        
-      }      
+        }
+      }
       #plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
-      if(!is.null(vafs.merged$cluster)) {      
+      if(!is.null(vafs.merged$cluster)) {
         legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
       }
 
       # Add annotation for gene names, if requested
       if(!(is.null(positionsToHighlight))){
-        addpts = merge(v, positionsToHighlight, by.x=c(1,2), by.y = c(1,2))
+        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
         # write.table(file="genes.txt", unique(addpts$gene_name), row.names=FALSE, col.names=FALSE, quote=FALSE)
         if(dim(addpts)[1] > 0){
           if(highlightsHaveNames){
@@ -874,13 +878,18 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
   ##set the size of the window
   r3dDefaults$windowRect <- c(0,50, size, size)
 
+  if(length(samplesToPlot) != 3){
+    print("ERROR: must provide exactly 3 sample names for 3d plotting")
+    return(0)
+  }
+
   a = sco@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
   a = a[!is.na(a$cluster),]
   numClusters=length(unique(a$cluster))
   cols=getClusterColors(numClusters)
   colvec = cols[a$cluster]
 
-  plot3d(a[,1], a[,2], a[,3], xlim=c(0,100), ylim=c(0,100),zlim=c(0,100), axes=FALSE, 
+  plot3d(a[,1], a[,2], a[,3], xlim=c(0,100), ylim=c(0,100),zlim=c(0,100), axes=FALSE,
          xlab=samplesToPlot[1], ylab=samplesToPlot[2], zlab=samplesToPlot[3],
          type="s", col=colvec)
   ##add a box
@@ -892,12 +901,12 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
       axes3d( edges=paste("z",i,j,sep=""), tick=FALSE, labels=FALSE)
     }
   }
-  
+
   if(is.null(outputFile)){
     play3d(spin3d(axis=c(0,0,1), rpm=10), duration=6)
   } else {
     ##remove trailing .gif, since movie3d adds it
-    sub(".gif$","",outputFile)
+    outputFile = sub(".gif$","",outputFile)
     movie3d(spin3d(axis=c(0,0,1), rpm=10), duration=6, dir=getwd(), movie=outputFile)
   }
 }
@@ -929,15 +938,18 @@ getClusterColors <- function(numClusters){
 ##-------------------------------------------------------------------------------------
 ## Extract a single sample's data from the merged data frame
 ##
-getOneSampleVafs <- function(vafs.merged, d, numClusters){
-  a = vafs.merged[,c("chr","st")]
-  n = (d*5)-2 #this sample's columns
-  b = vafs.merged[ ,n:(n+4)]
-  vafs = cbind(a,b)
-  names(vafs) = c("chr","st","ref","var","vaf","depth","cn")
+getOneSampleVafs <- function(vafs.merged, name, numClusters){
+  common = c("chr","st","adequateDepth")
+  a = vafs.merged[,common]
+  prefix = paste("^",name,".",sep="")
+  cols=grepl(prefix, names(vafs.merged))
+  header=sub(prefix, "", names(vafs.merged)[cols])
+  vafs = cbind(a,vafs.merged[,cols])
+  names(vafs) = c(common,header)
+
   if(numClusters > 0){
     vafs = cbind(vafs, vafs.merged$cluster)
-    names(vafs)[8] = "cluster"
+    names(vafs)[length(vafs)] = "cluster"
   }
   return(vafs)
 }
