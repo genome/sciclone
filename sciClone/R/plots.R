@@ -4,7 +4,7 @@
 sc.plot1d <- function(sco, outputFile,
                    plotOnlyCN2=FALSE, showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
-                   overlayIndividualModels=TRUE, show1DHistogram=FALSE, onlyLabelHighestPeak=FALSE,
+                   overlayIndividualModels=TRUE, showHistogram=FALSE, onlyLabelHighestPeak=FALSE,
                    minimumLabelledPeakHeight=0.001, showTitle=TRUE){
 
 
@@ -84,7 +84,7 @@ sc.plot1d <- function(sco, outputFile,
     colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
 
     for(i in cnToPlot){
-      if(!(is.null(densities[[i]])) & (!show1DHistogram | (i!= 2))){
+      if(!(is.null(densities[[i]])) & (!showHistogram | (i!= 2))){
         ##density lines
         lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
         ##peak labels
@@ -102,7 +102,7 @@ sc.plot1d <- function(sco, outputFile,
                  cex=0.7, srt=0, col=colors[[i]]);
           }
         }
-      } else if(show1DHistogram & (i == 2)) {
+      } else if(showHistogram & (i == 2)) {
 
         ## Only show histogram for copy number = 2
         v = vafs[which(vafs$cleancn==2 & vafs$adequateDepth==1),];
@@ -151,7 +151,7 @@ sc.plot1d <- function(sco, outputFile,
     pt.bgs = lcol
     leg = c("1 Copy", "2 Copies", "3 Copies", "4 Copies")
     if( (length(cnToPlot)== 1) ) {
-      if(show1DHistogram == FALSE) {
+      if(showHistogram == FALSE) {
         lcol=colors[2]
         lty = c(1)
         lwd = c(2)
