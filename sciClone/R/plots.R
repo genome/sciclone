@@ -8,8 +8,34 @@ sc.plot1d <- function(sco, outputFile,
                    minimumLabelledPeakHeight=0.001, showTitle=TRUE){
 
 
+  densityData = sco@densities
+  vafs.merged = sco@vafs.merged
+
+  sampleNames = sco@sampleNames
+  dimensions = sco@dimensions
+
+  ##are we plotting everything or just CN2?
+  cnToPlot = c();
+  if(plotOnlyCN2){
+    cnToPlot = c(2)
+  } else {
+    cnToPlot = 1:4
+  }
+
+  # If any of the vafs are named, assume we will be plotting them and
+  # will need a legend for them.
+  names(positionsToHighlight)=c("chr","st","name");  
+  addpts = merge(vafs.merged, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+  add.legend <- FALSE
+  if((dim(addpts)[1] > 0) & (any(addpts$name != ""))) { 
+    if(showCopyNumberScatterPlots & ( length(cnToPlot) < 2 ) & highlightsHaveNames) {
+      add.legend <- TRUE
+      # We will add a legend panel
+    }
+  }
+
   #sanity checks
-  if(highlightsHaveNames){
+  if(highlightsHaveNames & add.legend){
     if(!(is.null(positionsToHighlight))){
       if(length(positionsToHighlight) < 3){
         print("ERROR: named plot requires names in the third column of the positionsToHighlight data frame")
@@ -22,12 +48,6 @@ sc.plot1d <- function(sco, outputFile,
     }
   }
 
-  densityData = sco@densities
-  vafs.merged = sco@vafs.merged
-
-  sampleNames = sco@sampleNames
-  dimensions = sco@dimensions
-
   clust = NULL
   if(overlayClusters){
     if(is.null(sco@clust[1])){
@@ -38,7 +58,19 @@ sc.plot1d <- function(sco, outputFile,
     }
   }
 
-  pdf(file=outputFile, width=3.3, height=7.5, bg="white");
+  num.rows <- length(cnToPlot) + 1
+
+  if(add.legend) {
+    num.rows <- num.rows + 1
+  }
+  
+  # 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly
+  # if we have fewer rows.
+  #pdf(file=outputFile, width=3.3, height=7.5, bg="white");
+  height <- 7.5
+  scale <- 5 / num.rows
+  width <- 3.3 * scale
+  pdf(file=outputFile, width=width, height=height, bg="white");
 
   numClusters = 0
   if(!is.null(clust)) {
@@ -47,10 +79,14 @@ sc.plot1d <- function(sco, outputFile,
 
   ##one plot for each sample
   for(d in 1:dimensions){
-    par(mfcol=c(5,1),mar=c(0.5,3,1,1.5),oma=c(3,0,4,0),mgp = c(3,1,0));
 
     name=sampleNames[d]
 
+    ##grab only the vafs for this sample:
+    vafs = getOneSampleVafs(vafs.merged, name, numClusters);
+
+    par(mfcol=c(num.rows,1),mar=c(0.5*scale,3*scale,1*scale,1.5*scale),oma=c(3,0,4,0),mgp = c(3,1,0));
+    
     densities = densityData[[d]]$densities
     factors = densityData[[d]]$factors
     peakPos = densityData[[d]]$peakPos
@@ -66,27 +102,18 @@ sc.plot1d <- function(sco, outputFile,
 
     ##plot bg color
     rect(0, 0, 100, 1.1, col = "#00000011",border=NA);
-    axis(side=2,at=c(0,1),labels=c(0, ""), las=1, cex.axis=0.6, hadj=0.6,
-         lwd=0.5, lwd.ticks=0.5, tck=-0.01);
+    axis(side=2,at=c(0,1),labels=c(0, ""), las=1, cex.axis=0.6*scale, hadj=0.6,
+         lwd=0.5*scale, lwd.ticks=0.5*scale, tck=-0.01);
 
-
-    ##are we plotting everything or just CN2?
-    cnToPlot = c();
-    if(plotOnlyCN2){
-      cnToPlot = c(2)
-    } else {
-      cnToPlot = 1:4
-    }
-    ##grab only the vafs for this sample:
-    vafs = getOneSampleVafs(vafs.merged, name, numClusters);
 
     ##colors for different copy numbers
     colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
 
+    density.curve.width <- 4
     for(i in cnToPlot){
       if(!(is.null(densities[[i]])) & (!show1DHistogram | (i!= 2))){
         ##density lines
-        lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=2);
+        lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=density.curve.width*scale);
         ##peak labels
         if(length(peakHeights[[i]]) > 0){
           ppos = c();
@@ -99,7 +126,7 @@ sc.plot1d <- function(sco, outputFile,
           if(length(ppos) > 0){
             text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
                  labels=signif(peakPos[[i]][ppos],3),
-                 cex=0.7, srt=0, col=colors[[i]]);
+                 cex=0.7*scale, srt=0, col=colors[[i]]);
           }
         }
       } else if(show1DHistogram & (i == 2)) {
@@ -126,19 +153,19 @@ sc.plot1d <- function(sco, outputFile,
     ## style 1 = line
     model.style <- 4
     model.style <- 1
-    model.width <- 0.25
+    model.width <- density.curve.width / 2
     ## Plot the individual models with dotted lines (3) or dashed (2)
     individual.model.style <- 3
-    individual.model.width <- 1
+    individual.model.width <- density.curve.width / 2
 
     if(!(is.null(clust))){
       maxFitDensity <- max(clust$fit.y[d,])
       #points(clust$fit.x, clust$fit.y[d,]*25, type="l",col="grey50")
-      lines(clust$fit.x, clust$fit.y[d,]/maxFitDensity, type="l",col="grey50",lty=model.style, lwd=model.width)
+      lines(clust$fit.x, clust$fit.y[d,]/maxFitDensity, type="l",col="grey50",lty=model.style, lwd=model.width*scale)
       if(overlayIndividualModels==TRUE) {
         for(i in 1:numClusters) {
           lines(clust$fit.x, clust$individual.fits.y[[i]][d,]/maxFitDensity,
-                type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width)
+                type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width*scale)
         }
       }
     }
@@ -183,12 +210,12 @@ sc.plot1d <- function(sco, outputFile,
         pchs = c(pchs, NA)
       }
     }
-    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
+    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6*scale, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
 
 
-    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=1.4);
-    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.5,side=3);
-    mtext("Density (a.u.)",side=2,cex=0.5,padj=-4.2);
+    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6*scale,lwd=0.5*scale,lwd.ticks=0.5*scale,padj=1.4);
+    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1/scale,cex=0.6*scale,side=3);
+    mtext("Density (a.u.)",side=2,cex=0.6*scale,padj=-4.2/scale);
 
 
     ##add a title to the plot
@@ -199,7 +226,7 @@ sc.plot1d <- function(sco, outputFile,
       } else {
         title=paste(sampleNames[d],"Clonality Plot",sep=" ");
       }
-      mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
+      mtext(title, adj=0.5, padj=-5/scale, cex=0.65*scale, side=3);
     }
 
     ##-----------------------------------------------------
@@ -208,12 +235,12 @@ sc.plot1d <- function(sco, outputFile,
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
-        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters)
-        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6,lwd=0.5,lwd.ticks=0.5,padj=-1.4);
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale)
+        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6*scale,lwd=0.5*scale,lwd.ticks=0.5*scale,padj=-1.4);
 
 
         if(length(cnToPlot) < 2 & highlightsHaveNames){
-          addHighlightLegend(v, positionsToHighlight)
+          addHighlightLegend(v, positionsToHighlight,scale)
         } else {
           if(highlightsHaveNames){
             print("WARNING: highlighted point naming is only supported when plotOnlyCN2 is TRUE")
@@ -230,14 +257,14 @@ sc.plot1d <- function(sco, outputFile,
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters,scale=1){
 
   ## define plot colors
   ptcolor = colors[cn]
   circlecolor = substr(colors[cn],1,7) #chop off the alpha value
 
   ## define the plot space by plotting offscreen points
-  plot.default( x=-10000, y=1, log="y", type="p", pch=19, cex=0.4,
+  plot.default( x=-10000, y=1, log="y", type="p", pch=19, cex=0.4*scale,
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
@@ -246,16 +273,16 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     if(highlightSexChrs){
       ##plot autosomes
       data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=0.75, col=color);
-      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75, col=outlineCol, lwd=);
+      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=0.75*scale, col=color);
+      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol, lwd=);
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=0.75, col=color);
-      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75, col=outlineCol);
+      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=0.75*scale, col=color);
+      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
     } else {
-      points(data$vaf, data$depth, type="p", pch=16, cex=0.75, col=color);
+      points(data$vaf, data$depth, type="p", pch=16, cex=0.75*scale, col=color);
       ##add outline
-      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75, col=outlineCol);
+      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
     }
 
   }
@@ -283,18 +310,18 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       if(length(addpts[,1]) > 1){
         if(highlightsHaveNames){
           for(i in 1:length(addpts$vaf)){
-            text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
+            text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5*scale)
           }
         } else {
           addPoints(addpts, col="#555555FF", highlightSexChrs);
-          ##points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8,col="#555555FF");
+          ##points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8*scale,col="#555555FF");
         }
       }
     }
   }
 
   ## define the axis
-  axis(side=2,las=1,tck=0,lwd=0,cex.axis=0.6,hadj=0.5);
+  axis(side=2,las=1,tck=0,lwd=0,cex.axis=0.6*scale,hadj=0.5);
   for (i in 2:length(axTicks(2)-1)) {
     lines(c(-1,101),c(axTicks(2)[i],axTicks(2)[i]),col="#00000022");
   }
@@ -303,46 +330,55 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   rect(-1, 5, 101, axTicks(2)[length(axTicks(2))]*1.05, col = "#00000011",border=NA);
 
   ## add cn circle
-  points(x=c(97),y=c(maxDepth),type="p",pch=19,cex=3,col=circlecolor);
-  text(c(97),y=c(maxDepth), labels=c(cn), cex=1, col="#FFFFFFFF")
+  points(x=c(97),y=c(maxDepth),type="p",pch=19,cex=3*scale,col=circlecolor);
+  text(c(97),y=c(maxDepth), labels=c(cn), cex=1*scale, col="#FFFFFFFF")
 
 
   ## y axis label
-  mtext("Tumor Coverage",side=2,cex=0.5,padj=-4.2);
+  mtext("Tumor Coverage",side=2,cex=0.6*scale,padj=-4.2/scale);
 }
 
 
 ##--------------------------------------------------------------------
 ## add a legend for highlighted points with names
-addHighlightLegend <- function(data, positionsToHighlight){
+addHighlightLegend <- function(data, positionsToHighlight, scale){
+
+  if((is.null(positionsToHighlight))){ return() }
+
+  names(positionsToHighlight)=c("chr","st","name");
+
+  addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+
+  if(length(addpts[,1]) == 0){ return() }
+
+  non.trivial.names <- addpts$name[addpts$name != ""]
+
+  if(length(non.trivial.names) == 0){ return() }
+  
   plot.default(x=-10000, y=1, type="p", pch=19, cex=0.4,
                col="#00000000", xlim=c(0,1000), ylim=c(0,1000),
                axes=FALSE, ann=FALSE);
 
-  mtext("Tier 1 Genes",side=2,cex=0.5,padj=-4.2);
+  # mtext("Genes",side=2,cex=0.5,padj=-4.2);
 
+  ypos=rev(seq(0,900,(900/13)))[1:13]
+  # Don't put empty names on legend
+  non.trivial.indices <- (1:length(addpts$name))[addpts$name != ""]
+  ncol=ceiling(length(non.trivial.names)/13)
+  xpos=0;
+  offset=1
+  nxt <- 1
+  for(n in 1:ncol){
+    names = non.trivial.names[offset:(offset+12)]
+    names = as.character(names[!(is.na(names))])
+    num = length(names)
 
-  names(positionsToHighlight)=c("chr","st","name");
-
-  if(!(is.null(positionsToHighlight))){
-    addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-    if(length(addpts[,1]) > 1){
-      ypos=rev(seq(0,900,(900/13)))[1:13]
-      ncol=ceiling((dim(addpts)[1])/13)
-      xpos=0;
-      offset=1
-      for(i in 1:ncol){
-        names = addpts[offset:(offset+12),]$name;
-        names = as.character(names[!(is.na(names))])
-        num = length(names)
-
-        for(i in 1:num){
-          text(xpos, ypos[i], paste(offset+i-1,". ",names[i],sep=""), cex=0.5, pos=4)
-        }
-        xpos=xpos+250;
-        offset=offset+13;
-      }
+    for(i in 1:num){
+      text(xpos, ypos[i], paste(non.trivial.indices[nxt],". ",names[i],sep=""), cex=0.6*scale, pos=4)
+      nxt <- nxt+1
     }
+    xpos=xpos+250;
+    offset=offset+13;
   }
 }
 
@@ -490,6 +526,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
+        names(positionsToHighlight)=c("chr","st","name");
         chr.start.v <- cbind(v[,"chr"], v[,"st"])
         chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
@@ -600,7 +637,8 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             xs <- list()
             ys <- list()
             labels <- list()
-            
+
+            nxt <- 1
             for(i in 1:dim(addpts)[1]) {
               if(addpts$vaf.1[i] < 1) {
                 x <- addpts$vaf.1[i] - 12
@@ -612,12 +650,17 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
                 x <- addpts$vaf.1[i] + 5
                 y <- addpts$vaf.2[i] + 5
               }
-              label <- as.character(addpts$gene_name[i])
+              label <- as.character(addpts$name[i])
               #df <- data.frame(x=x, y=y)
-              #grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
-              xs[[i]] <- x
-              ys[[i]] <- y
-              labels[[i]] <- label
+              if(label == "") {
+                # No label to place
+              } else { 
+                # grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+                xs[[nxt]] <- x
+                ys[[nxt]] <- y
+                labels[[nxt]] <- label
+                nxt <- nxt + 1
+              }
             }
 
             xs <- unlist(xs)
@@ -628,10 +671,12 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
-            xs <- spread.labs(xs, mindiff=4, min=xs)
-            ys <- spread.labs(ys, mindiff=4, min=ys)            
-            for(i in 1:num.labels) {
-              grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+            if(num.labels > 0){             
+              xs <- spread.labs(xs, mindiff=4, min=xs)
+              ys <- spread.labs(ys, mindiff=4, min=ys)
+              for(i in 1:num.labels) {
+                grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+              }
             }
             # Move up depth+1 in the tree.  NB: +1 because we pushed a
             # viewport on to the tree.
@@ -733,6 +778,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       # a different symbol/color (a black *)
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
+        names(positionsToHighlight)=c("chr","st","name");        
         chr.start.v <- cbind(v[,"chr"], v[,"st"])
         chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
@@ -836,6 +882,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             ys <- list()
             labels <- list()
 
+            nxt <- 1
             for(i in 1:dim(addpts)[1]) {
               par(xpd=NA)
               cex <- 1
@@ -853,12 +900,15 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
                 x <- addpts$vaf.1[i] + 4
                 y <- addpts$vaf.2[i] + 4
               }
-              label <- as.character(addpts$gene_name[i])
+              label <- as.character(addpts$name[i])
               #df <- data.frame(x=x, y=y)
               #grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
-              xs[[i]] <- x
-              ys[[i]] <- y
-              labels[[i]] <- label
+              if(label != "") {
+                xs[[nxt]] <- x
+                ys[[nxt]] <- y
+                labels[[nxt]] <- label
+                nxt <- nxt + 1
+              }
             }
 
             xs <- unlist(xs)
@@ -869,14 +919,14 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
-            xs <- spread.labs(xs, mindiff=4, min=xs)
-            ys <- spread.labs(ys, mindiff=4, min=ys)            
-            for(i in 1:num.labels) {
-              #grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
-              text(x=xs[i], y=ys[i], label=labels[i], cex=cex)
+            if(num.labels > 0){ 
+              xs <- spread.labs(xs, mindiff=4, min=xs)
+              ys <- spread.labs(ys, mindiff=4, min=ys)
+              for(i in 1:num.labels) {
+                #grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+                text(x=xs[i], y=ys[i], label=labels[i], cex=cex)
+              }
             }
-
-
           }
         }
       } # End add gene annotations

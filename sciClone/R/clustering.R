@@ -68,7 +68,7 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
       print(paste("ERROR: only",length(vafs[,1])," points 0 not enough points to cluster when using",initialClusters,"intialClusters. Provide more data or reduce your maximumClusters option"))
-      stop()
+      return(list(NULL))
     }
 
     #replace any values of zero with a very small number to prevent errors

@@ -85,7 +85,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     ## for tumors with ployplody, even if we can't cluster
     ## (maybe we should even cluster with 3x regions, etc - put it on the todo list)
     if(is.null(densityData[[i]]$densities[[2]])){
-      stop(paste("can't do clustering - no copy number 2 regions to operate on in sample",i));
+      cat(paste("can't do clustering - no copy number 2 regions to operate on in sample",i,"\n"));
+      if(doClustering==TRUE) { return(NULL) }
     }
 
     if(doPurityEst){
@@ -172,6 +173,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   if(doClustering){
     if(verbose){print("clustering...")}
     clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
+    if(is.null(clust[[1]])) { return(NULL) }
     if(verbose){print("finished clustering full-dimensional data...");}
   }
 
