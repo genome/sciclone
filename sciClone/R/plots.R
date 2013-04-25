@@ -24,7 +24,9 @@ sc.plot1d <- function(sco, outputFile,
 
   # If any of the vafs are named, assume we will be plotting them and
   # will need a legend for them.
-  names(positionsToHighlight)=c("chr","st","name");  
+  if(!is.null(positionsToHighlight)) {
+    names(positionsToHighlight)=c("chr","st","name");
+  }
   addpts = merge(vafs.merged, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
   add.legend <- FALSE
   if((dim(addpts)[1] > 0) & (any(addpts$name != ""))) { 
