@@ -311,7 +311,13 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       if(length(addpts[,1]) > 1){
         if(highlightsHaveNames){
           for(i in 1:length(addpts$vaf)){
-            text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5*scale)
+            if(addpts$name[i] != "") {
+              # Only label the gene with a number if it has a number
+              text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5*scale)
+            } else {
+              # Otherwise, just highlight it with a star
+              text(addpts$vaf[i],addpts$depth[i],labels="*",cex=scale)
+            }
           }
         } else {
           addPoints(addpts, col="#555555FF", highlightSexChrs);
@@ -375,7 +381,8 @@ addHighlightLegend <- function(data, positionsToHighlight, scale){
     num = length(names)
 
     for(i in 1:num){
-      text(xpos, ypos[i], paste(non.trivial.indices[nxt],". ",names[i],sep=""), cex=0.6*scale, pos=4)
+      #text(xpos, ypos[i], paste(non.trivial.indices[nxt],". ",names[i],sep=""), cex=0.6*scale, pos=4)
+      text(xpos, ypos[i], paste(nxt,". ",names[i],sep=""), cex=0.6*scale, pos=4)
       nxt <- nxt+1
     }
     xpos=xpos+250;
