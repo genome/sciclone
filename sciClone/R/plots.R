@@ -716,7 +716,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
   suppressPackageStartupMessages(library(MKmisc))
   suppressPackageStartupMessages(library(NORMT3))
   # Return a "1 std dev" confidence interval
-  width <- as.real(erf(1/sqrt(2)))
+  width <- as.double(erf(1/sqrt(2)))
   lb <- mapply(function(a,b) binomCI(a, b, conf.level=width, method="jeffreys")$CI[1], successes, total.trials)
   ub <- mapply(function(a,b) binomCI(a, b, conf.level=width, method="jeffreys")$CI[2], successes, total.trials)
   res <- data.frame(lb=lb, ub=ub)

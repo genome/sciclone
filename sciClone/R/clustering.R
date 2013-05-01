@@ -184,8 +184,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
     E.pi.prev <- rep(0, N.c)
 
-    width <- as.real(erf(1.5/sqrt(2)))
-    # width <- as.real(erf(1/sqrt(2)))
+    width <- as.double(erf(1.5/sqrt(2)))
+    # width <- as.double(erf(1/sqrt(2)))
     if(plotIntermediateResults > 0) {
 
       probs <- r
@@ -199,7 +199,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       highlightsHaveNames <- FALSE
       overlayClusters <- TRUE
 
-      ellipse.width <- as.real(erf(1/sqrt(2)))
+      ellipse.width <- as.double(erf(1/sqrt(2)))
 
       # Calculate standard error of the means
       SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
@@ -270,7 +270,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           highlightsHaveNames <- FALSE
           overlayClusters <- TRUE
 
-          ellipse.width <- as.real(erf(1/sqrt(2)))
+          ellipse.width <- as.double(erf(1/sqrt(2)))
 
           # Calculate standard error of the means
           SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
