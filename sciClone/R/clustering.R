@@ -18,7 +18,16 @@
 clusterVafs <- function(vafs.merged, vafMatrix, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
   ##check for suitable method
   if(method == "bmm"){
-   return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0))
+    if(!is.null(params)){
+      ##handle input params to clustering method - only supports one for now...
+      params=strsplit(params,", *",perl=TRUE)[[1]]
+      if(grepl("overlap.threshold",params)){
+        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val))
+      }
+    }
+    return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0))
+
   ## }  else if(method != "mixtoolsBinomial"){
   ##   return(clusterWithMixtools(vafs, "Binomial", purity, params));
   ## } else if (method != "mixtoolsNormal"){
@@ -62,7 +71,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (beta mixture model)
 ##
-clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE) {
+clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
     library(bmm)
 
     initialClusters=initialClusters
@@ -80,7 +89,7 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
 
     #also replace any values of one to prevent errors
     vafs[which(vafs >= (1-delta))] = 1 - delta
-    
+
     ## Initialize the hyperparameters of the Beta mixture model (bmm).
     hyperparams <- init.bmm.hyperparameters(vafs, initialClusters)
 
@@ -89,7 +98,7 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults)
+    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -170,8 +179,9 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
 ## ##--------------------------------------------------------------------------
 ## ## The beta distribution clustering + filtering method
 ## ##
-bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0, convergence.threshold = 10^-4,
-                                max.iterations = 10000, verbose = 0, plotIntermediateResults = 0){
+bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0,
+                                convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
+                                plotIntermediateResults = 0, overlap.threshold=0.8){
 
     total.iterations <- 0
     N <- dim(X)[1]
@@ -411,7 +421,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
             }
 
-            overlap.threshold <- 0.8
             if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
                 for(k in 1:N.c) {
                     # Small clusters will have undefined overlaps, just skip.

@@ -173,7 +173,10 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   if(doClustering){
     if(verbose){print("clustering...")}
     clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
-    if(is.null(clust[[1]])) { return(NULL) }
+    if(is.null(clust[[1]])) {
+      print("Warning: no clusters, returning NULL")
+      return(NULL)
+    }
     if(verbose){print("finished clustering full-dimensional data...");}
   }
 

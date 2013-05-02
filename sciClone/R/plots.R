@@ -951,8 +951,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
   library(rgl)
   ##set the size of the window
-  r3dDefaults$windowRect <- c(0,50, size, size)
-
+  open3d(windowRect = c(0,0, size, size) )
   if(length(samplesToPlot) != 3){
     print("ERROR: must provide exactly 3 sample names for 3d plotting")
     return(0)
@@ -982,7 +981,7 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
   } else {
     ##remove trailing .gif, since movie3d adds it
     outputFile = sub(".gif$","",outputFile)
-    movie3d(spin3d(axis=c(0,0,1), rpm=10), duration=6, dir=getwd(), movie=outputFile)
+    movie3d(spin3d(axis=c(0,0,1), rpm=5), duration=12, dir=getwd(), movie=outputFile)
   }
 }
 

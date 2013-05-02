@@ -1,4 +1,4 @@
 .onLoad <- function(libname, pkgname) {
   initScClass()
-  packageStartupMessage("Using sciClone version 0.4.0")
+  packageStartupMessage("Using sciClone version 0.4.1")
 }
