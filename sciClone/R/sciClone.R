@@ -236,6 +236,18 @@ writeClusterTable <- function(sco, outputFile){
     write.table(sco@vafs.merged, file=outputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
 }
 
+##------------------------------------------------------------------------------------------
+##  write out a table of all cluster centers and their SEMs
+##
+writeClusterSummaryTable <- function(sco, outputFile){
+    out <- paste(outputFile, ".means", sep="")
+    write.table(t(sco@clust[["cluster.means"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
+    out <- paste(outputFile, ".lower", sep="")    
+    write.table(t(sco@clust[["cluster.lower"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
+    out <- paste(outputFile, ".upper", sep="")    
+    write.table(t(sco@clust[["cluster.upper"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
+}
+
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##

@@ -543,28 +543,40 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       title <- ""
 
-
       # Plot the points that we will not highlight
       frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, row.names=NULL, stringsAsFactors=NULL)
 
+      colvec = c()
       if(numClusters > 0) {
         clusters <- v.no.highlight$cluster
         cols=getClusterColors(numClusters)
         colvec = cols[clusters]
+        clusters <- unlist(lapply(clusters, as.character))
+        frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, shape=clusters, colour=clusters, row.names=NULL, stringsAsFactors=FALSE)
 
-        g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y), shape=clusters, colour=colvec)
+        g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y, shape=shape, colour=colour))
+
+        # Plot a legend
+        g <- g + scale_colour_manual(name = "Clusters", labels = 1:numClusters, values = cols[1:numClusters])
+        g <- g + scale_shape_manual(name = "Clusters", labels = 1:numClusters, values = 1:numClusters)
       } else {
         g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y))
       }
-      
+
       if(overlayErrorBars == TRUE) {
         err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
         err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
         err.df.x <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, xmin=err.bars.1$lb, xmax=err.bars.1$ub)
-        g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour=colvec)
-
         err.df.y <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
-        g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour=colvec)
+        if(numClusters > 0) {
+          g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax), colour=colvec)
+          g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour=colvec)
+        } else {
+          g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax))
+          g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax))
+          
+        }
+
       } 
       
 
@@ -596,6 +608,9 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       g <- g + theme_bw() + theme(panel.border = element_blank())
 
       g <- g + theme(plot.margin = unit(c(0,0,0,0), "cm"))
+
+      # Put the legend in the top right
+      g <- g + theme(legend.position = c(1,1), legend.justification=c(1,1))
       
       hline <- data.frame(x = c(0,100), y=c(-5,-5))
       g <- g + geom_line(data = hline, aes(x,y))
@@ -625,7 +640,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       vp11 <- vp
       plot.2d <- plot.2d + theme(text = element_text(size = text.size))
       print(plot.2d, vp=vp)
-
+ 
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
