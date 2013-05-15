@@ -1,9 +1,15 @@
 ##--------------------------------------------------------------------
 ## hand off the data to the appropriate clustering algorithm
 ##
-## Each clustering algorithm function should take a NxM matrix of vafs as input
-## (where M = number of samples and N = number of points to cluster)
-## and return a list containing the following items
+## Each clustering algorithm function should take as input
+## an NxM matrix of vafs (with M = # of samples and N = # of points to cluster),
+## an NxM matrix of variant read counts,
+## and an NxM matrix of reference read counts.
+## e.g., a beta mixture model works on the vafs, while a binomial mixture
+## model operates on the variant and reference counts directly.  These
+## two specifications are equivalent--we should probably drop the vaf input
+## and have the method compute those if it needs them.
+## It should return a list containing the following items
 ##   cluster.assignments = a vector of length N containing a numeric cluster assignment
 ##   cluster.means = a matrix of size M x number_of_clusters containing the mean values
 ##                   of a cluster's vafs in each sample
@@ -15,19 +21,28 @@
 ##           Y values should be scaled between 0 and 1
 ##   individual.fits.y = a list of length number_of_clusters, holding the individual fits for each of the models, each represented by an M x P matrix (as for fit.y)
 
-clusterVafs <- function(vafs.merged, vafMatrix, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
+clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClusters, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
   ##check for suitable method
   if(method == "bmm"){
     if(!is.null(params)){
       ##handle input params to clustering method - only supports one for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
       if(grepl("overlap.threshold",params)){
-        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
-        return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val))
+        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]        
+        return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))        
       }
     }
-    return(clusterWithBmm(vafs.merged, vafMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0))
-
+    return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
+  } else if(method == "binomial.bmm"){
+    if(!is.null(params)){
+      ##handle input params to clustering method - only supports one for now...
+      params=strsplit(params,", *",perl=TRUE)[[1]]
+      if(grepl("overlap.threshold",params)){
+        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))
+      }
+    }
+    return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
   ## }  else if(method != "mixtoolsBinomial"){
   ##   return(clusterWithMixtools(vafs, "Binomial", purity, params));
   ## } else if (method != "mixtoolsNormal"){
@@ -71,7 +86,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (beta mixture model)
 ##
-clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
+clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
     library(bmm)
 
     initialClusters=initialClusters
@@ -164,6 +179,99 @@ clusterWithBmm <- function(vafs.merged, vafs, initialClusters=10, samples=1, plo
     x = x*100
 
     #return a list of info
+    return(list(
+        cluster.assignments = clusters,
+        cluster.probabilities= probs,
+        cluster.means = means,
+        cluster.upper = upper,
+        cluster.lower = lower,
+        fit.x = x,
+        fit.y = y,
+        individual.fits.y = yms))
+}
+
+##--------------------------------------------------------------------------
+## Do clustering with binomial bmm (binomial bayesian mixture model)
+##
+clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
+    library(bmm)
+
+    initialClusters=initialClusters
+    if(length(vafs[,1]) <= initialClusters){
+      print(paste("ERROR: only",length(vafs[,1])," points 0 not enough points to cluster when using",initialClusters,"intialClusters. Provide more data or reduce your maximumClusters option"))
+      return(list(NULL))
+    }
+
+    total.trials <- vars + refs
+    
+    ## Initialize the hyperparameters of the Binomial mixture model.
+    hyperparams <- init.binomial.bmm.hyperparameters(vars, total.trials, initialClusters)
+
+    ## Initialize the parameters of the bmm.
+    params <- init.binomial.bmm.parameters(vars, total.trials, initialClusters, hyperparams$a0, hyperparams$b0, hyperparams$alpha0)
+    
+    ## Perform the clustering.
+    ## Start with the provided number of clusters, but prune any with low probability
+    bmm.results <- binomial.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$a, params$b, params$alpha, hyperparams$a0, hyperparams$b0, hyperparams$alpha0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold)
+    if(bmm.results$retVal != 0) {
+        cat("WARNING: bmm failed to converge. No clusters assigned\n")
+        return(NULL);
+    }
+
+    ##get the assignment of each point to a cluster
+    probs = bmm.results$r
+    numPoints = length(probs[,1])
+    numClusters = length(probs[1,])
+    clusters = hardClusterAssignments(numPoints,numClusters,probs);
+
+    ## find confidence intervals around the means of the clusters
+    intervals = binomial.bmm.narrowest.mean.interval.about.centers(bmm.results$a, bmm.results$b, 0.68)
+    means = intervals$centers
+    if(verbose){
+      print("Cluster Centers:");
+      print(means);
+    }
+    lower = intervals$lb
+    upper = intervals$ub
+
+    if(verbose){
+      print("Outliers:")
+      print(bmm.results$outliers)
+    }
+
+
+    ## Generate (x,y) values of the posterior predictive density
+
+    ## We will evaluate these densities at the median total.trials
+    ## in order to uniquely define proportions from count data.
+    eta <- round(median(total.trials))
+    
+    x <- seq(0, eta, 1)
+    n <- length(x)
+
+    y <- rep.int(0, n)
+    y = t(matrix(rep(y,dim(vafs)[2]),ncol=dim(vafs)[2]))
+
+    ##for each dimension
+    yms = list()
+    for (k in 1:numClusters) {
+      yms[[k]] <- y
+    }
+    for(dim in 1:dim(vafs)[2]){
+        ym <- matrix(data=0, nrow=numClusters, ncol=n)
+        num.iterations <- 100
+        for (k in 1:numClusters) {
+            for (i in 1:n) {
+                ## Evaluate posterior probability at x.
+                ym[k,i] <- binomial.bmm.component.posterior.predictive.density(x[i], eta, bmm.results$a[k,dim], bmm.results$b[k,dim], bmm.results$E.pi[k])
+                yms[[k]][dim,i] <- ym[k,i]
+                y[dim,i] <- y[dim,i] + ym[k,i]
+            }
+        }
+    }
+
+    x = ( x / eta ) * 100
+
     return(list(
         cluster.assignments = clusters,
         cluster.probabilities= probs,
@@ -318,10 +426,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         # Changes on Mar 25, 2013
         apply.overlapping.std.dev.condition <- FALSE
         apply.uncertainty.self.overlap.condition <- TRUE
-        apply.uncertainty.overlap.condition <- TRUE
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-            threshold.pts <- 3
+            # threshold.pts <- 10
+            threshold.pts <- 3          
 
             clusters <- hardClusterAssignments(N,N.c,r)
 
@@ -912,6 +1020,311 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
 } # End bmm.filter.clusters
 
+
+
+## ##--------------------------------------------------------------------------
+## ## The binomial distribution clustering + filtering method
+## ##
+binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0,
+                                convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
+                                plotIntermediateResults = 0, overlap.threshold=0.8){
+
+
+  total.iterations <- 0 
+  num.dimensions <- dim(successes)[2]
+
+  N <- dim(successes)[1]
+
+  successes.colnames <- colnames(successes)
+  total.colnames <- colnames(total.trials)  
+
+  outliers <- matrix(data=0, nrow=0, ncol=num.dimensions)
+  colnames(outliers) <- colnames(vafs)
+
+  E.pi.prev <- rep(0, N.c)
+
+  width <- as.double(erf(1.5/sqrt(2)))  
+  
+  while(TRUE) {
+
+    if(verbose){
+      print(r)
+    }
+    
+    bmm.res <- binomial.bmm.fixed.num.components(successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0, convergence.threshold, max.iterations = 10000, verbose = verbose)
+    if(bmm.res$retVal != 0) {
+      cat("Failed to converge!\n")
+      q(status=-1)
+    }
+
+    a <- bmm.res$a
+    b <- bmm.res$b
+    alpha <- bmm.res$alpha
+    
+    E.pi <- bmm.res$E.pi
+    r <- bmm.res$r    
+
+    total.iterations <- total.iterations + bmm.res$num.iterations
+
+    ln.rho <- bmm.res$ln.rho
+    E.lnpi <- bmm.res$E.lnpi
+
+    do.inner.iteration <- FALSE
+
+    apply.min.items.condition <- TRUE
+    apply.uncertainty.self.overlap.condition <- FALSE
+    apply.large.SEM.condition <- FALSE
+    apply.overlapping.SEM.condition <- FALSE
+    apply.overlapping.std.dev.condition <- TRUE
+
+    # Changes on Mar 25, 2013
+    apply.overlapping.std.dev.condition <- FALSE
+    apply.uncertainty.self.overlap.condition <- TRUE
+
+    # remove.data = TRUE iff we should remove points assigned to clusters
+    # that we remove
+    remove.data <- FALSE
+    
+    clusters <- hardClusterAssignments(N,N.c,r)
+
+    indices.to.keep <- rep(TRUE, N.c)
+    if((apply.min.items.condition == TRUE) & (N.c > 1)) {
+      threshold.pts <- 10          
+
+      num.items.per.cluster <- rep(0, N.c)
+      for(n in 1:N) {
+        num.items.per.cluster[clusters[n]] <- num.items.per.cluster[clusters[n]] + 1
+      }
+
+      indices.to.keep <- num.items.per.cluster >= threshold.pts
+      
+      # indices.to.keep <- E.pi > pi.threshold
+    } # End apply.min.items.condition
+
+    if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
+
+      overlaps <- rep(0, N.c)
+      ones <- rep(1, N)
+      # Just drop min overlap
+      for(k in 1:N.c) {
+        overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
+      }
+
+      if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
+        for(k in 1:N.c) {
+          # Small clusters will have undefined overlaps, just skip.
+          # We'll remove them later.
+          if(is.nan(overlaps[k])) { next }
+          if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
+            indices.to.keep[k] <- FALSE
+            break
+          }
+        }
+      }
+
+      if(verbose){
+        for(k in 1:N.c) {
+          cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", k, E.pi[k], overlaps[k]))
+        }
+
+        means <- matrix(a/(a+b), nrow=num.dimensions, ncol=N.c)
+        indices.to.drop <- (1:N.c)[!indices.to.keep]
+        for(i in 1:length(indices.to.drop)) {
+          index <- indices.to.drop[i]
+          if(verbose){
+            cat("Self-overlap condition: Dropping cluster with center: ")
+            for(l in 1:num.dimensions) {
+              cat(sprintf("%.3f ", means[l, index]))
+            }
+            cat("\n")
+          }
+        }
+      }
+
+    } # End apply.uncertainty.self.overlap.condition
+
+    # Calculate standard error of the means
+    SEM.res <- binomial.bmm.narrowest.mean.interval.about.centers(a, b, width)
+    SEM.centers <- t(SEM.res$centers)
+    SEMs.lb <- t(SEM.res$lb)
+    SEMs.ub <- t(SEM.res$ub)
+
+    if(all(indices.to.keep==TRUE) & (apply.large.SEM.condition == TRUE) & (N.c > 1)) {
+
+      for(k in 1:N.c) {
+        if (verbose) {
+          cat(sprintf("%dD: Cluster %d pi = %.3f: ", num.dimensions, k, E.pi[k]))
+        }
+        greater.than.30 <- TRUE
+        greater.than.02 <- TRUE
+        SEM.width.threshold <- 0.02
+        #SEM.width.threshold <- 0.001
+        for(m in 1:num.dimensions) {
+          center <- SEM.centers[k,m]
+          lower <- SEMs.lb[k,m]
+          upper <- SEMs.ub[k,m]
+          std.dev.width <- (std.dev.ub[k,m] - std.dev.lb[k,m])
+          SEM.width <- (SEMs.ub[k,m] - SEMs.lb[k,m])
+          #if((SEM.width/std.dev.width)>.3){ greater.than.30 <- TRUE }
+          #if(SEM.width>.02){ greater.than.02 <- TRUE }
+          if((SEM.width/std.dev.width)<=.3){ greater.than.30 <- FALSE }
+          if(SEM.width<=SEM.width.threshold){ greater.than.02 <- FALSE }
+          if (verbose) {
+            cat(sprintf("%.3f (%.3f, %.3f) [(%.3f) %.3f, %.3f] {%.3f} ", center, lower, upper, width, std.dev.lb[k,m], std.dev.ub[k,m], SEM.width/std.dev.width))
+            if(greater.than.30) { cat("* ") }
+            if(greater.than.02) { cat("**") }
+          }
+        }
+        if (verbose) {
+          cat("\n")
+        }
+        if(greater.than.30 & greater.than.02) { indices.to.keep[k] <- FALSE }
+      }
+      if ( any(indices.to.keep==FALSE) ) {      
+        remove.data <- TRUE
+      }
+    } # End apply.large.SEM.condition
+
+    if(all(indices.to.keep==TRUE) & (apply.overlapping.SEM.condition == TRUE) & (N.c > 1)) {
+
+      # Determine if component i's center is contained within
+      # component i2's std.dev
+      pi.threshold = 10^-2
+
+      for(i in 1:N.c){
+        i.subsumed.by.another.cluster <- FALSE
+        for(i2 in 1:N.c){
+          if(i == i2) { next }
+          if(indices.to.keep[i2] == FALSE) { next }
+          if(E.pi[i2] < pi.threshold) { next }
+          i.subsumed.by.another.cluster <- TRUE
+          for(l in 1:num.dimensions){
+            i.center <- std.dev.centers[i,l]
+            if((i.center < std.dev.lb[i2,l]) | (i.center > std.dev.ub[i2,l])) {
+              i.subsumed.by.another.cluster <- FALSE
+              break
+            }
+          }
+          if(i.subsumed.by.another.cluster==TRUE) {
+            if(verbose){
+              cat(sprintf("2. Dropping cluster with center: "))
+              for(l in 1:num.dimensions){
+                cat(sprintf("%.3f ", std.dev.centers[i,l]))
+              }
+              cat(sprintf("because it overlaps with: "))
+              for(l in 1:num.dimensions){
+                cat(sprintf("(%.3f, %.3f) ", std.dev.lb[i2,l], std.dev.ub[i2,l]))
+              }
+              cat("\n")
+              break
+            }
+          }
+        }
+        if(i.subsumed.by.another.cluster==TRUE) {
+          indices.to.keep[i] <- FALSE
+        }
+      }
+
+    } # End apply.overlapping.SEM.condition
+
+    if(all(indices.to.keep==TRUE) & (apply.overlapping.std.dev.condition == TRUE) & (N.c > 1)) {
+
+      # Determine how much component i's std dev overlaps component i2's std dev
+      overlaps <- matrix(data = 1, nrow=N.c, ncol=N.c)
+      std.dev.overlap.threshold <- 0
+      for(i in 1:N.c){
+        for(i2 in 1:N.c){
+          if(verbose){
+            cat("   ")
+          }
+          for(l in 1:num.dimensions){
+            fraction <- 0
+            if((std.dev.lb[i,l] < std.dev.ub[i2,l]) & (std.dev.ub[i,l] > std.dev.lb[i2,l])) {
+              overlap <- min(std.dev.ub[i,l], std.dev.ub[i2,l]) - max(std.dev.lb[i,l], std.dev.lb[i2,l])
+              fraction <- overlap / ( std.dev.ub[i,l] - std.dev.lb[i,l] )
+            }
+            if((fraction > std.dev.overlap.threshold) & (overlaps[i,i2] != 0)) {
+              overlaps[i,i2] <- 1
+            } else {
+              overlaps[i,i2] <- 0
+            }
+          }
+        }
+      }
+
+      # Remove one of two overlapping clusters.  If both overlap
+      # (NB: above is not symmetric), then only remove smaller of two.
+      for(i in 2:N.c){
+        if(indices.to.keep[i] == FALSE) { next }
+        for(i2 in 1:(i-1)){
+          if(indices.to.keep[i2] == FALSE) { next }
+          if(overlaps[i,i2] == 1) {
+            if((overlaps[i2,i] == 1) & (E.pi[i2] < E.pi[i])) {
+              if(verbose){cat("Removing ", i2, " because of overlap with i = ", i, "\n")}
+              indices.to.keep[i2] <- FALSE
+            } else {
+              if(verbose){cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")}
+              indices.to.keep[i] <- FALSE
+            }
+          }
+        }
+      }
+    } # End apply.overlapping.std.dev.condition
+
+
+  
+    if ( any(indices.to.keep==FALSE) ) {
+
+      do.inner.iteration <- TRUE
+
+      numeric.indices <- (1:N.c)
+
+      E.pi <- E.pi[indices.to.keep]
+      E.lnpi <- E.lnpi[indices.to.keep]
+
+      N.c <- length(E.pi)
+
+      if(remove.data == TRUE) {
+        cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
+        new.outliers <- matrix(vafs[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
+        outliers <- rbind(outliers, new.outliers)
+        # To remove data from the data set, set its entries to NA
+        vafs[!(clusters %in% cluster.indices.to.keep),] <- NA
+        successes[!(clusters %in% cluster.indices.to.keep),] <- NA
+        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA        
+      }
+
+      r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
+      ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
+      # Need to renormalize r--do it gently.
+      for(n in 1:N) {
+         if(any(is.na(ln.rho[n,]))) {
+           r[n,] <- rep(NA, N.c)
+           next
+         }
+          
+         row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
+         for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
+      }
+      a <- matrix(a[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
+      b <- matrix(b[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
+      alpha <- alpha[indices.to.keep,drop=FALSE]
+      a0 <- matrix(a0[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
+      b0 <- matrix(b0[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
+      alpha0 <- alpha0[indices.to.keep,drop=FALSE]
+
+      E.pi.prev <- E.pi      
+    } 
+
+    if(do.inner.iteration == FALSE) { break }
+
+  }
+
+  retList <- list("retVal" = 0, "a" = a, "b" = b, "alpha" = alpha, "r" = r, "num.iterations" = total.iterations, "ln.rho" = ln.rho, "E.lnpi" = E.lnpi, "E.pi" = E.pi, "outliers" = outliers)
+
+  return(retList)
+
+} # End binomial.bmm.filter.clusters
 
 
 

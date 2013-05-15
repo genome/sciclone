@@ -164,6 +164,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
   #convert to a matrix to feed into clustering
   vafs.matrix = as.matrix(vafs.merged.cn2[,vafcols])
+  vars.matrix = as.matrix(vafs.merged.cn2[,varcols])
+  refs.matrix = as.matrix(vafs.merged.cn2[,refcols])
   #convert vafs to be between 0 and 1
   vafs.matrix = vafs.matrix/100
 
@@ -172,7 +174,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   clust=list(NULL)
   if(doClustering){
     if(verbose){print("clustering...")}
-    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
+    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
     if(is.null(clust[[1]])) {
       print("Warning: no clusters, returning NULL")
       return(NULL)
@@ -202,13 +204,14 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
   if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
   if(showMarginalData == FALSE) { doClusteringAlongMargins <- FALSE }
+  #doClusteringAlongMargins <- FALSE
 
   # Perform 1D clustering of each dimension independently.
   marginalClust = list()
   vafs.1d = list()
   if(doClusteringAlongMargins == TRUE){
     for(i in 1:dimensions){
-      marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], clusterMethod, purities[i], clusterParams, FALSE)
+      marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE], maximumClusters, clusterMethod, purities[i], clusterParams, FALSE)
       if(verbose){print(paste("finished clustering", sampleNames[i], "..."))}
       numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
       print(paste("found",numClusters,"clusters"))
