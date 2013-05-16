@@ -204,7 +204,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
   if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
   if(showMarginalData == FALSE) { doClusteringAlongMargins <- FALSE }
-  #doClusteringAlongMargins <- FALSE
+  # doClusteringAlongMargins <- FALSE
 
   # Perform 1D clustering of each dimension independently.
   marginalClust = list()
