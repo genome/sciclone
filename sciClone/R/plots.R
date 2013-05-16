@@ -974,6 +974,7 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
 
   a = sco@vafs.merged[,c(paste(samplesToPlot,".vaf",sep=""),"cluster")]
   a = a[!is.na(a$cluster),]
+  a = a[!(a$cluster==0),]
   numClusters=max(a$cluster)
   cols=getClusterColors(numClusters)
   colvec = cols[a$cluster]
