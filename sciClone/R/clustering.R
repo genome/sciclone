@@ -21,15 +21,15 @@
 ##           Y values should be scaled between 0 and 1
 ##   individual.fits.y = a list of length number_of_clusters, holding the individual fits for each of the models, each represented by an M x P matrix (as for fit.y)
 
-clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClusters, method="bmm", purities=100, params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
+clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClusters, method="bmm", params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
   ##check for suitable method
   if(method == "bmm"){
     if(!is.null(params)){
       ##handle input params to clustering method - only supports one for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
       if(grepl("overlap.threshold",params)){
-        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]        
-        return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))        
+        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))
       }
     }
     return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
@@ -53,12 +53,8 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       }
     }
     return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
-  ## }  else if(method != "mixtoolsBinomial"){
-  ##   return(clusterWithMixtools(vafs, "Binomial", purity, params));
-  ## } else if (method != "mixtoolsNormal"){
-  ##   return(clusterWithMixtools(vafs, "Normal", purity, params));
   } else {
-    print("Error: please choose a supported clustering method\n[bmm]");
+    print("Error: please choose a supported clustering method\n[bmm|gaussian.bmm|binomial.bmm]");
     return(0);
   }
 }
@@ -213,13 +209,13 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     }
 
     total.trials <- vars + refs
-    
+
     ## Initialize the hyperparameters of the Binomial mixture model.
     hyperparams <- init.binomial.bmm.hyperparameters(vars, total.trials, initialClusters)
 
     ## Initialize the parameters of the bmm.
     params <- init.binomial.bmm.parameters(vars, total.trials, initialClusters, hyperparams$a0, hyperparams$b0, hyperparams$alpha0)
-    
+
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
     bmm.results <- binomial.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$a, params$b, params$alpha, hyperparams$a0, hyperparams$b0, hyperparams$alpha0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold)
@@ -255,7 +251,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     ## We will evaluate these densities at the median total.trials
     ## in order to uniquely define proportions from count data.
     eta <- round(median(total.trials))
-    
+
     x <- seq(0, eta, 1)
     n <- length(x)
 
@@ -307,7 +303,7 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     }
 
     total.trials <- vars + refs
-    
+
     ## Initialize the hyperparameters of the gaussian mixture model.
     hyperparams <- init.gaussian.bmm.hyperparameters(vafs, initialClusters)
 
@@ -358,15 +354,15 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     if(dim(vafs)[2]==1) {
       ## Generate (x,y) values of the posterior predictive density
       n <- 1000
-  
+
       ## Don't evaluate at x=0 or x=1, which will blow up
       x <- seq(0, 1, 1/n)[2:n]
-  
+
       ## create a num_dimensions x n matrix of y values
       n=n-1;
       y <- rep.int(0, n)
       y = t(matrix(rep(y,dim(vafs)[2]),ncol=dim(vafs)[2]))
-  
+
       ##for each dimension
       yms = list()
       for (k in 1:numClusters) {
@@ -389,11 +385,11 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
           #}
           #y[dim,] = y[dim,]/max(y[dim,])
       }
-  
+
       ##scale xvals between 1 and 100
       x = x*100
     }
-      
+
     #return a list of info
     return(list(
         cluster.assignments = clusters,
@@ -551,7 +547,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             # threshold.pts <- 10
-            threshold.pts <- 3          
+            threshold.pts <- 3
 
             clusters <- hardClusterAssignments(N,N.c,r)
 
@@ -1152,27 +1148,27 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
                                 plotIntermediateResults = 0, overlap.threshold=0.8){
 
 
-  total.iterations <- 0 
+  total.iterations <- 0
   num.dimensions <- dim(successes)[2]
 
   N <- dim(successes)[1]
 
   successes.colnames <- colnames(successes)
-  total.colnames <- colnames(total.trials)  
+  total.colnames <- colnames(total.trials)
 
   outliers <- matrix(data=0, nrow=0, ncol=num.dimensions)
   colnames(outliers) <- colnames(vafs)
 
   E.pi.prev <- rep(0, N.c)
 
-  width <- as.double(erf(1.5/sqrt(2)))  
-  
+  width <- as.double(erf(1.5/sqrt(2)))
+
   while(TRUE) {
 
     if(verbose){
       print(r)
     }
-    
+
     bmm.res <- binomial.bmm.fixed.num.components(successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0, convergence.threshold, max.iterations = 10000, verbose = verbose)
     if(bmm.res$retVal != 0) {
       cat("Failed to converge!\n")
@@ -1182,9 +1178,9 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     a <- bmm.res$a
     b <- bmm.res$b
     alpha <- bmm.res$alpha
-    
+
     E.pi <- bmm.res$E.pi
-    r <- bmm.res$r    
+    r <- bmm.res$r
 
     total.iterations <- total.iterations + bmm.res$num.iterations
 
@@ -1206,12 +1202,12 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # remove.data = TRUE iff we should remove points assigned to clusters
     # that we remove
     remove.data <- FALSE
-    
+
     clusters <- hardClusterAssignments(N,N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 10          
+      threshold.pts <- 10
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1219,7 +1215,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       }
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
-      
+
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
@@ -1302,7 +1298,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
         }
         if(greater.than.30 & greater.than.02) { indices.to.keep[k] <- FALSE }
       }
-      if ( any(indices.to.keep==FALSE) ) {      
+      if ( any(indices.to.keep==FALSE) ) {
         remove.data <- TRUE
       }
     } # End apply.large.SEM.condition
@@ -1394,7 +1390,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     } # End apply.overlapping.std.dev.condition
 
 
-  
+
     if ( any(indices.to.keep==FALSE) ) {
 
       do.inner.iteration <- TRUE
@@ -1413,7 +1409,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
         # To remove data from the data set, set its entries to NA
         vafs[!(clusters %in% cluster.indices.to.keep),] <- NA
         successes[!(clusters %in% cluster.indices.to.keep),] <- NA
-        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA        
+        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA
       }
 
       r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
@@ -1424,7 +1420,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
            r[n,] <- rep(NA, N.c)
            next
          }
-          
+
          row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
          for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
       }
@@ -1435,8 +1431,8 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       b0 <- matrix(b0[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
       alpha0 <- alpha0[indices.to.keep,drop=FALSE]
 
-      E.pi.prev <- E.pi      
-    } 
+      E.pi.prev <- E.pi
+    }
 
     if(do.inner.iteration == FALSE) { break }
 
@@ -1452,32 +1448,32 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 ## ##--------------------------------------------------------------------------
 ## ## The binomial distribution clustering + filtering method
 ## ##
-gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0, 
+gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
                                 plotIntermediateResults = 0, overlap.threshold=0.8){
 
 
-  total.iterations <- 0 
+  total.iterations <- 0
   num.dimensions <- dim(successes)[2]
 
   N <- dim(successes)[1]
 
   successes.colnames <- colnames(successes)
-  total.colnames <- colnames(total.trials)  
+  total.colnames <- colnames(total.trials)
 
   outliers <- matrix(data=0, nrow=0, ncol=num.dimensions)
   colnames(outliers) <- colnames(vafs)
 
   E.pi.prev <- rep(0, N.c)
 
-  width <- as.double(erf(1/sqrt(2)))  
-  
+  width <- as.double(erf(1/sqrt(2)))
+
   while(TRUE) {
 
     if(verbose){
       print(r)
     }
-    
+
     bmm.res <- gaussian.bmm.fixed.num.components(vafs, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0, convergence.threshold, max.iterations, verbose)
     if(bmm.res$retVal != 0) {
       cat("Failed to converge!\n")
@@ -1489,9 +1485,9 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     beta <- bmm.res$beta
     nu <- bmm.res$nu
     W <- bmm.res$W
-    
+
     E.pi <- bmm.res$E.pi
-    r <- bmm.res$r    
+    r <- bmm.res$r
 
     total.iterations <- total.iterations + bmm.res$num.iterations
 
@@ -1513,12 +1509,12 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # remove.data = TRUE iff we should remove points assigned to clusters
     # that we remove
     remove.data <- FALSE
-    
+
     clusters <- hardClusterAssignments(N,N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 10          
+      threshold.pts <- 10
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1526,7 +1522,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       }
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
-      
+
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
@@ -1609,7 +1605,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
         }
         if(greater.than.30 & greater.than.02) { indices.to.keep[k] <- FALSE }
       }
-      if ( any(indices.to.keep==FALSE) ) {      
+      if ( any(indices.to.keep==FALSE) ) {
         remove.data <- TRUE
       }
     } # End apply.large.SEM.condition
@@ -1701,7 +1697,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     } # End apply.overlapping.std.dev.condition
 
 
-  
+
     if ( any(indices.to.keep==FALSE) ) {
 
       do.inner.iteration <- TRUE
@@ -1720,7 +1716,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
         # To remove data from the data set, set its entries to NA
         vafs[!(clusters %in% cluster.indices.to.keep),] <- NA
         successes[!(clusters %in% cluster.indices.to.keep),] <- NA
-        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA        
+        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA
       }
 
       r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
@@ -1731,7 +1727,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
            r[n,] <- rep(NA, N.c)
            next
          }
-          
+
          row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
          for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
       }
@@ -1740,16 +1736,16 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       alpha <- alpha[indices.to.keep,drop=FALSE]
       beta <- beta[indices.to.keep,drop=FALSE]
       nu <- nu[indices.to.keep,drop=FALSE]
-      W <- W[indices.to.keep,drop=FALSE]            
+      W <- W[indices.to.keep,drop=FALSE]
 
       m0 <- matrix(m0[indices.to.keep,], nrow=N.c, ncol=num.dimensions)
       alpha0 <- alpha0[indices.to.keep,drop=FALSE]
       beta0 <- beta0[indices.to.keep,drop=FALSE]
       nu0 <- nu0[indices.to.keep,drop=FALSE]
-      W0 <- W0[indices.to.keep,drop=FALSE]            
-      
-      E.pi.prev <- E.pi      
-    } 
+      W0 <- W0[indices.to.keep,drop=FALSE]
+
+      E.pi.prev <- E.pi
+    }
 
     if(do.inner.iteration == FALSE) { break }
 
@@ -1762,132 +1758,3 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
   return(retList)
 
 } # End gaussian.bmm.filter.clusters
-
-
-
-
-## ##--------------------------------------------------------------------------
-## ## Do clustering with mixtools/mixdist
-## ##
-## clusterWithMixtools <- function(vafs,componentDistribution="Binomial"){
-    ##   library(mixtools)
-    ##   library(mixdist)
-
-
-    ##   ##TODO set default params here
-    ##   maximumClustersToTest=10;
-
-    ##   ## ##overwrite params if any passed in
-    ##   ## if(!(is.null(params))){
-        ##   ##
-        ##   ## }
-
-        ##   num_clusters = 0
-        ##   print("Performing 'mixdist' clustering...");
-
-        ##   ##function to process mixdist results
-        ##   process_percents <- function(percents,chisq,pval,componentDistribution) {
-            ##     minchisq = NULL;
-            ##     best_fit_component_assessment = 0;
-            ##     minpval = NULL;
-            ##     true_cluster_count = NULL;
-
-            ##     for (i in 1:maximumClustersToTest) {
-                ##       if (percents[i]!="Error" && !is.nan(pval[i]) && pval[i] < 0.05) {
-                    ##         if (is.null(minchisq) || chisq[i] < minchisq) {
-                        ##           minchisq = chisq[i];
-                        ##           minpval = pval[i];
-                        ##           best_fit_component_assessment = i;
-                        ##         }
-                        ##       }
-                        ##       true_cluster_count[i] = 0;
-                        ##       percentage_per_cluster = as.numeric(percents[[i]]);
-                        ##       true_clusters = percentage_per_cluster > 0.02;
-                        ##       for (j in 1:i) {
-                            ##         if (isTRUE(true_clusters[j])) {
-                                ##           true_cluster_count[i] = true_cluster_count[i] + 1;
-                                ##         }
-                                ##       }
-                                ##     }
-                                ##     print(paste("chosen_component_assessment = ",best_fit_component_assessment,", true_component_count = ",true_cluster_count[best_fit_component_assessment],", assessment_chisq_value = ",minchisq,", assessment_p-value = ",minpval,sep=""));
-
-                                ##     ## If no clusters exceeded the pval of 0.05,it returns numeric(0),
-                                ##     ## which causes problems later on solution is to return just 0
-                                ##     ## clusters and warn user
-                                ##     if(best_fit_component_assessment > 0){
-                                    ##       return(true_cluster_count[best_fit_component_assessment]);
-                                    ##     } else {
-                                        ##       print("WARNING: unable to estimate number of clusters - significance of 0.05 not reached")
-                                        ##       return(0)
-                                        ##     }
-                                        ##   }
-
-                                        ##   ## run mixdist
-                                        ##   data = vafs$vaf/100
-                                        ##   grouped_data = NULL;
-
-                                        ##   ## if ceiling of max(data) is odd, then add 1 and group data. else, group data using the even ceiling
-                                        ##   if (ceiling(max(data))%%2) {
-                                            ##     grouped_data = mixgroup(data, breaks = c(seq(0,ceiling(max(data))+1,2)));
-                                            ##   } else {
-                                                ##     grouped_data = mixgroup(data, breaks = c(seq(0,ceiling(max(data)),2)));
-                                                ##   }
-
-                                                ##   ## for each component count, get mixdist fit estimates for chosen distribution
-                                                ##   percents=NULL; chisq=NULL; pval=NULL;
-                                                ##   for (i in 1:maximumClustersToTest) {
-                                                    ##     data_params = NULL;
-                                                    ##     test = NULL;
-
-                                                    ##     if (componentDistribution == "Normal") {
-                                                        ##       data_params = mixparam(c(1:i)*(purity/2)/i,rep(sd(data),i));
-                                                        ##       test=try(mix(mixdat=grouped_data,mixpar=data_params, emsteps=3, dist="norm"), silent=TRUE);
-                                                        ##     }
-                                                        ##     if (componentDistribution == "Binomial") {
-                                                            ##       data_params = mixparam(c(1:i)*(purity/2)/i,rep(sd(data)/2,i));
-                                                            ##       test=try(mix(mixdat=grouped_data,mixpar=data_params, emsteps=3, dist="binom", constr=mixconstr(consigma="BINOM",size=rep(round(length(data)),i))), silent=TRUE);
-                                                            ##     }
-
-                                                            ##     if (class(test) == 'try-error') {
-                                                                ##       percents[i] = "Error";
-                                                                ##       print(paste("Common mixdist error when looking for ",i," components.",sep=""));
-                                                                ##     }
-                                                                ##     else {
-                                                                    ##       percents[i]=list(test$parameters$pi)
-                                                                    ##       chisq[i]=test$chisq;
-                                                                    ##       pval[i] = test$P;
-
-                                                                    ##       if(testing){
-                                                                        ##         filename = paste("plot_component_",i,".pdf",sep="");
-                                                                        ##         print(paste("Testing output: plotting ",filename));
-                                                                        ##         pdf(filename)
-                                                                        ##         ##dev.new();
-                                                                        ##         plot(test);
-                                                                        ##         ##dev.copy(pdf,filename);
-                                                                        ##         d = dev.off();
-                                                                        ##       }
-                                                                        ##     }
-                                                                        ##   }
-                                                                        ##   num_clusters = process_percents(percents,chisq,pval,componentDistribution);
-
-
-                                                                        ##   ##now that we know the number of clusters, assign points to each using mixtools
-                                                                        ##   print("assigning points to clusters using mixtools");
-                                                                        ##   mix_results <- normalmixEM(vafs, k=num_clusters, maxit=10000, maxrestarts=20);
-                                                                        ##   posteriors <- mix_results$posterior;
-                                                                        ##   clusters = NULL;
-                                                                        ##   for (n in 1:(dim(posteriors)[1])) {
-                                                                            ##     clusters[n]=as.numeric(which(posteriors[n,]==max(posteriors[n,]),arr.ind=T));
-                                                                            ##   }
-                                                                            ##   plot_clusters(vafsByCn[[i]]$vaf,clusters);
-
-
-                                                                            ##   ## print output file displaying data points clustered and their associated cluster
-                                                                            ##   if (!is.null(clusteredDataOutputFile)) {
-                                                                                ##     output = cbind(vafsByCn[[i]],clusters);
-                                                                                ##     names(output)[8] = "cluster"
-                                                                                ##     write.table(output, file=clusteredDataOutputFile, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE);
-                                                                                ##   }
-
-
-                                                                                ## }

@@ -28,7 +28,7 @@ sc.plot1d <- function(sco, outputFile,
   if(!is.null(positionsToHighlight)) {
     names(positionsToHighlight)=c("chr","st","name");
     addpts = merge(vafs.merged, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-    if((dim(addpts)[1] > 0) & (any(addpts$name != ""))) { 
+    if((dim(addpts)[1] > 0) & (any(addpts$name != ""))) {
       if(showCopyNumberScatterPlots & ( length(cnToPlot) < 2 ) & highlightsHaveNames) {
         add.legend <- TRUE
         # We will add a legend panel
@@ -64,7 +64,7 @@ sc.plot1d <- function(sco, outputFile,
   if(add.legend) {
     num.rows <- num.rows + 1
   }
-  
+
   # 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly
   # if we have fewer rows.
   #pdf(file=outputFile, width=3.3, height=7.5, bg="white");
@@ -87,7 +87,7 @@ sc.plot1d <- function(sco, outputFile,
     vafs = getOneSampleVafs(vafs.merged, name, numClusters);
 
     par(mfcol=c(num.rows,1),mar=c(0.5*scale,3*scale,1*scale,1.5*scale),oma=c(3,0,4,0),mgp = c(3,1,0));
-    
+
     densities = densityData[[d]]$densities
     factors = densityData[[d]]$factors
     peakPos = densityData[[d]]$peakPos
@@ -361,7 +361,7 @@ addHighlightLegend <- function(data, positionsToHighlight, scale){
   non.trivial.names <- addpts$name[addpts$name != ""]
 
   if(length(non.trivial.names) == 0){ return() }
-  
+
   plot.default(x=-10000, y=1, type="p", pch=19, cex=0.4,
                col="#00000000", xlim=c(0,1000), ylim=c(0,1000),
                axes=FALSE, ann=FALSE);
@@ -481,7 +481,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       g <- g + stat_function(data = limits, fun=f, mapping=aes(x))
     }
-      
+
     g <- g + coord_cartesian(ylim=c(xmin, max.density*1.1), xlim=c(xmin,xmax))
 
     plots.1d.list[[d]] <- g
@@ -531,7 +531,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       } else {
         v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
       }
-      
+
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
         names(positionsToHighlight)=c("chr","st","name");
@@ -574,11 +574,11 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
         } else {
           g <- g + geom_errorbarh(data = err.df.x, aes(x=x, y=y, xmin=xmin, xmax=xmax))
           g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax))
-          
+
         }
 
-      } 
-      
+      }
+
 
       # Now overlay any points that we will highlight
       if(!(is.null(positionsToHighlight))) {
@@ -599,10 +599,10 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             err.df.y <- data.frame(x=addpts$vaf.1, y=addpts$vaf.2, ymin=err.bars.2$lb, ymax=err.bars.2$ub)
             g <- g + geom_errorbar(data = err.df.y, aes(x=x, y=y, ymin=ymin, ymax=ymax), colour="black")
           }
-        } 
+        }
 
       }
-      
+
       # g <- g + theme_bw() + theme(axis.line = element_line(colour = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank())
 
       g <- g + theme_bw() + theme(panel.border = element_blank())
@@ -611,7 +611,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       # Put the legend in the top right
       g <- g + theme(legend.position = c(1,1), legend.justification=c(1,1))
-      
+
       hline <- data.frame(x = c(0,100), y=c(-5,-5))
       g <- g + geom_line(data = hline, aes(x,y))
 
@@ -621,7 +621,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
       g <- g + coord_cartesian(xlim=c(xmin, xmax), ylim=c(xmin, xmax))
 
       plot.2d <- g
-      
+
       # Code to override clipping
       #plot.2d <- ggplot_gtable(ggplot_build(g))
       #plot.2d$layout$clip[plot.2d$layout$name=="panel"] <- "off"
@@ -629,18 +629,18 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
 
       plot.1d.1 <- plots.1d.list[[d1]]
       plot.1d.2 <- plots.1d.list[[d2]]
-      
+
       grid.newpage()
 
       pushViewport(viewport(layout = grid.layout(2, 2), clip="off"))
 
       text.size <- 10
-      
+
       vp <- vplayout(1,1)
       vp11 <- vp
       plot.2d <- plot.2d + theme(text = element_text(size = text.size))
       print(plot.2d, vp=vp)
- 
+
       if(!(is.null(positionsToHighlight))) {
         # Merge the data and the positions to highlight by chr (col 1)
         # and start (col 2)
@@ -677,7 +677,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
               #df <- data.frame(x=x, y=y)
               if(label == "") {
                 # No label to place
-              } else { 
+              } else {
                 # grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
                 xs[[nxt]] <- x
                 ys[[nxt]] <- y
@@ -694,7 +694,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
-            if(num.labels > 0){             
+            if(num.labels > 0){
               xs <- spread.labs(xs, mindiff=4, min=xs)
               ys <- spread.labs(ys, mindiff=4, min=ys)
               for(i in 1:num.labels) {
@@ -801,7 +801,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       # a different symbol/color (a black *)
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
-        names(positionsToHighlight)=c("chr","st","name");        
+        names(positionsToHighlight)=c("chr","st","name");
         chr.start.v <- cbind(v[,"chr"], v[,"st"])
         chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
         v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
@@ -811,14 +811,14 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       if(overlayErrorBars == TRUE) {
         err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
         err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
-      } 
+      }
 
-      if(!is.null(vafs.merged$cluster)) {      
+      if(!is.null(vafs.merged$cluster)) {
         for(i in 1:numClusters){
           indices <- v.no.highlight$cluster==i
           if(overlayClusters){
             if(dim(v.no.highlight[indices,])[1] > 0) {
-              if(overlayErrorBars == TRUE) { 
+              if(overlayErrorBars == TRUE) {
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
@@ -827,7 +827,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             }
           } else {
             if(dim(v.no.highlight[indices,])[1] > 0) {
-              if(overlayErrorBars == TRUE) { 
+              if(overlayErrorBars == TRUE) {
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
@@ -838,7 +838,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         }
       } else {
         if(dim(v.no.highlight)[1] > 0) {
-          if(overlayErrorBars == TRUE) { 
+          if(overlayErrorBars == TRUE) {
             plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
             plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
           } else {
@@ -856,7 +856,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         # Plot the highlighted items.  NB:  we never overlay the
         # cluster on them, but expect this will be obvious from context
         if(dim(addpts)[1] > 0) {
-          if(overlayErrorBars == TRUE) { 
+          if(overlayErrorBars == TRUE) {
             err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
             err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
             plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
@@ -909,7 +909,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             for(i in 1:dim(addpts)[1]) {
               par(xpd=NA)
               cex <- 1
-            
+
               if(addpts$vaf.1[i] < 1) {
                 #text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
                 x <- addpts$vaf.1[i] - 8
@@ -917,8 +917,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
               } else if(addpts$vaf.2[i] < 1) {
                 #text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
                 x <- addpts$vaf.1[i]
-                y <- addpts$vaf.2[i] - 5                
-              } else { 
+                y <- addpts$vaf.2[i] - 5
+              } else {
                 #text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
                 x <- addpts$vaf.1[i] + 4
                 y <- addpts$vaf.2[i] + 4
@@ -942,7 +942,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
-            if(num.labels > 0){ 
+            if(num.labels > 0){
               xs <- spread.labs(xs, mindiff=4, min=xs)
               ys <- spread.labs(ys, mindiff=4, min=ys)
               for(i in 1:num.labels) {

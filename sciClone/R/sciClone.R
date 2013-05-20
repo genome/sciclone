@@ -1,20 +1,12 @@
-####--------------------------------------------------------------------
-## vafs is a data frame of somatic variants- chr,pos,refreads,varreads,vaf
-##     vaf is a percentage
-##     if you want to filter on minimum depth in normal or tumor, do that
-##     before calling this function
-##
-## copyNumberCalls is a data frame - chr st sp cn
-##
-## positionsToHighlight is a data frame where the first two columns are - chr, pos
-##
-## regions to include is chr,st,sp format
+##---------------------------------------------------------------
+## clean up and cluster variants based on allele frequency
 ##
 sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      sampleNames, minimumDepth=100, clusterMethod="bmm",
                      clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
-                     copyNumberMargins=0.25, maximumClusters=10, annotation=NULL){
+                     copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
+                     doPurityScaling=TRUE){
 
   if(verbose){print("checking input data...")}
 
@@ -61,16 +53,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
 
   ##-----------------------------------------
-  if(verbose){print("calculating kernel density and purity")}
+  if(verbose){print("calculating kernel density")}
 
   densityData=NULL
-
-  doPurityEst=FALSE;
-  if(is.null(purities)){
-    doPurityEst=TRUE;
-    purities = c()
-  }
-
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
     vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth, copyNumberMargins)
@@ -88,11 +73,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       cat(paste("can't do clustering - no copy number 2 regions to operate on in sample",i,"\n"));
       if(doClustering==TRUE) { return(NULL) }
     }
-
-    if(doPurityEst){
-      purities = c(purities,getPurity(densityData[[i]]$peakPos))
-    }
   }
+
 
 
   ##-----------------------------------------------
@@ -105,7 +87,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.merged = merge(vafs.merged, vafs[[i]], by.x=c(1,2), by.y=c(1,2), suffixes=c(i-1,i), all.x=TRUE, all.y=TRUE)
     }
   }
-  
+
   refcols = grep("^ref",names(vafs.merged))
   varcols = grep("^var",names(vafs.merged))
   vafcols = grep("^vaf",names(vafs.merged))
@@ -141,7 +123,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     for(j in cleancncols){
       if(is.na(vafs.merged[i,j])){
         cnNeutral[i] = 0
-      } else if(vafs.merged[i,j] != 2){ 
+      } else if(vafs.merged[i,j] != 2){
         cnNeutral[i] = 0
       }
     }
@@ -156,7 +138,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
   print(paste(length(vafs.merged.cn2[,1]),"sites are copy number neutral and have adequate depth in all samples"))
-  
+
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
   vafs.merged.orig <- vafs.merged
@@ -169,12 +151,104 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   #convert vafs to be between 0 and 1
   vafs.matrix = vafs.matrix/100
 
+  ## purity correction
+  if(is.null(purities)){
+    if(doPurityScaling){
+      purities=c()
+      print("estimating purity")
+
+      ## ## Perform 1D clustering of each dimension independently - use the max cluster to estimate purity.
+      ## marginalClust = list()
+      ## vafs.1d = list()
+      ## for(i in 1:dimensions){
+      ##   dclust = clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE],
+      ##     maximumClusters, clusterMethod, clusterParams, FALSE)
+      ##   purities[i] = round(max(sort(dclust[["cluster.means"]]))*2*100,2)
+      ##   if(purities[[i]] > 100){
+      ##     purities[[i]] = 100;
+      ##   }
+
+      ##do multi-d clustering of the data, use the higest point in the max cluster to estimate purity (outliers are removed in clustering)
+      clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, clusterParams,
+        samples=length(purities), plotIntermediateResults=0, verbose=0)
+      if(is.null(clust[[1]])) {
+        print("WARNING: couldn't estimate and correct for purity, will cluster using input vafs")
+      } else {
+        for(i in 1:dimensions){
+          ##use the mean of the max cluster
+          ## purities[i] = round(max(sort(t(clust[["cluster.means"]])[,i]))*2*100,2)
+
+          #use the highest point that was assigned to a cluster (not an outlier)
+          vafs.tmp = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
+          vafcols = grep("vaf$",names(vafs.tmp))
+          purities[i] = max(vafs.tmp[vafs.tmp$cluster > 0,vafcols[i]])*2
+          print(paste("purity of sample",sampleNames[i],"is estimated to be",purities[[i]]))
+          ##do the adjustment to the appropriate columns
+          vafcols = grep("vaf$",names(vafs.merged))
+          vafs.merged[,vafcols[i]] = (vafs.merged[,vafcols[i]]/purities[i])*100
+          vafcols = grep("vaf$",names(vafs.merged.cn2))
+          vafs.merged.cn2[,vafcols[i]] = (vafs.merged.cn2[,vafcols[i]]/purities[i])*100
+          vafs.matrix[,i] = (vafs.matrix[,i]/purities[i])*100
+        }
+      }
+
+      ## ## use the median of the top 5% of points - this is stupid...
+      ## for(i in 1:dimensions){
+      ##   print(max(vafs.matrix[,i]))
+      ##   purities[i] = round(median(rev(sort(vafs.matrix[,i]))[1:round(length(vafs.matrix[,i])/20)])*2*100,2)
+      ##   print(paste("purity of sample",sampleNames[i],"is estimated to be",purities[i]))
+      ##   ##do the adjustment to the appropriate columns
+      ##   vafcols = grep("vaf$",names(vafs.merged))
+      ##   vafs.merged[,vafcols[i]] = (vafs.merged[,vafcols[i]]/purities[i])*100
+      ##   vafcols = grep("vaf$",names(vafs.merged))
+      ##   vafs.merged.cn2[,vafcols[i]] = (vafs.merged.cn2[,vafcols[i]]/purities[i])*100
+      ##   vafs.matrix[,i] = (vafs.matrix[,i]/purities[i])*100
+      ## }
+
+    } else {
+      purities = rep(100,dimensions)
+    }
+  } else { ##purities provided
+    if(doPurityScaling){
+      ##use input purities for adjustment
+      for(i in 1:dimensions){
+        vafs.merged[,vafcols[i]] = (vafs.merged[,vafcols[i]]/purities[i])*100
+        vafs.merged.cn2[,vafcols[i]] = (vafs.merged.cn2[,vafcols[i]]/purities[i])*100
+        vafs.matrix[,i] = (vafs.matrix[,i]/purities[i])*100
+      }
+    }
+  }
+
+
   ##---------------------------------------------------
   ##do the clustering
+  marginalClust = list()
+  vafs.1d = list()
+  ## Perform 1D clustering of each dimension independently.
+  if(dimensions > 1){
+    print("clustering each dimension independently")
+    for(i in 1:dimensions){
+      marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE],
+                     maximumClusters, clusterMethod, clusterParams, FALSE)
+      if(verbose){print(paste("finished 1d clustering", sampleNames[i], "..."))}
+      numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
+      print(paste("found",numClusters,"clusters"))
+
+      vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
+      vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
+        by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
+      ##sort by chr, st
+      vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
+      vafs.1d[[i]] = vafs.1d.merged
+    }
+  }
+
+  ## now do clustering using all dimensions
   clust=list(NULL)
   if(doClustering){
     if(verbose){print("clustering...")}
-    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, purities, clusterParams, samples=length(purities), plotIntermediateResults=0, verbose=0)
+    clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, clusterParams,
+      samples=length(purities), plotIntermediateResults=0, verbose=0)
     if(is.null(clust[[1]])) {
       print("Warning: no clusters, returning NULL")
       return(NULL)
@@ -182,53 +256,27 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     if(verbose){print("finished clustering full-dimensional data...");}
   }
 
+  #reorder the clusters to the largest vaf is first
+  clust=reorderClust(clust)
+
   numClusters=0
   if(!(is.null(clust[[1]]))){
     numClusters = max(clust$cluster.assignments,na.rm=T)
-    #append (hard and fuzzy) cluster assignments
+    ##append (hard and fuzzy) cluster assignments
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
     vafs.merged.cn2 = cbind(vafs.merged.cn2,cluster.prob=clust$cluster.probabilities)
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
-    #sort by chr, st
+    ##sort by chr, st
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
     print(paste("found",numClusters,"clusters"))
-  }
-  
-  # Show a 1D projection of the data along the axes for multidimensional data.
-  showMarginalData <- TRUE
-  #showMarginalData <- FALSE
-  if(dimensions == 1) { showMarginalData <- FALSE }
-  # Cluster the 1D data shown along the margins (as opposed to showing the
-  # 1D projection of the multidimensional clustering result)
-  doClusteringAlongMargins <- TRUE
-  if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
-  if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
-  if(showMarginalData == FALSE) { doClusteringAlongMargins <- FALSE }
-  # doClusteringAlongMargins <- FALSE
-
-  # Perform 1D clustering of each dimension independently.
-  marginalClust = list()
-  vafs.1d = list()
-  if(doClusteringAlongMargins == TRUE){
-    for(i in 1:dimensions){
-      marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE], maximumClusters, clusterMethod, purities[i], clusterParams, FALSE)
-      if(verbose){print(paste("finished clustering", sampleNames[i], "..."))}
-      numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
-      print(paste("found",numClusters,"clusters"))
-
-      vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
-      vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)), by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
-      #sort by chr, st
-      vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
-      vafs.1d[[i]] = vafs.1d.merged
-    }
   }
 
   if(!is.null(annotation)) {
     vafs.merged = merge(vafs.merged, annotation, by.x=c(1,2), by.y=c(1,2), all.x=TRUE, all.y=FALSE)
   }
-  return(new("scObject", clust=clust, densities=densityData, dimensions=dimensions,  marginalClust=marginalClust,
-             sampleNames=sampleNames, vafs.1d=vafs.1d, vafs.merged=vafs.merged))
+  return(new("scObject", clust=clust, densities=densityData, dimensions=dimensions,
+             marginalClust=marginalClust, sampleNames=sampleNames, vafs.1d=vafs.1d,
+             vafs.merged=vafs.merged, purities=purities))
 }
 
 
@@ -245,9 +293,9 @@ writeClusterTable <- function(sco, outputFile){
 writeClusterSummaryTable <- function(sco, outputFile){
     out <- paste(outputFile, ".means", sep="")
     write.table(t(sco@clust[["cluster.means"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
-    out <- paste(outputFile, ".lower", sep="")    
+    out <- paste(outputFile, ".lower", sep="")
     write.table(t(sco@clust[["cluster.lower"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
-    out <- paste(outputFile, ".upper", sep="")    
+    out <- paste(outputFile, ".upper", sep="")
     write.table(t(sco@clust[["cluster.upper"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
 }
 
@@ -436,7 +484,7 @@ getPurity <- function(peakPos){
 ## calculate the 1d kernel density and peaks
 ##
 getDensity <- function(vafs){
-    ##data structure to hold infoemacs sp
+    ##data structure to hold info
     densities = vector("list",4)
     factors = vector("list",4)
     peakPos = vector("list",4)
@@ -489,9 +537,6 @@ getDensity <- function(vafs){
 }
 
 
-
-
-
 ##--------------------------------------------------------------------
 ## find inflection points (peaks)
 ##
@@ -505,3 +550,49 @@ getPeaks<-function(series,span=3){
   }
 
 
+##--------------------------------------------------------------------
+## reorder the clusters to the largest vaf is first
+##
+reorderClust <- function(clust){
+
+  nums=unique(clust$cluster.assignments)[unique(clust$cluster.assignments)>0]
+
+  #calc distance of cluster center from origin
+  dist=c()
+  for(i in nums){
+    z = clust$cluster.means
+    dist = c(dist, sqrt(sum(clust$cluster.means[,i]^2)))
+  }
+
+  df = data.frame(nums,dist=dist)
+  df = cbind(df[rev(order(df$dist)),],new=1:length(nums))
+
+
+  ass = list()
+  prob=list()
+  means=list()
+  upper=list()
+  lower=list()
+  individual=list()
+
+  for(i in 1:length(df[,1])){
+    oldnum = df[i,1]
+    ## store the cluster assignments
+    ass[[i]] = which(clust$cluster.assignments==oldnum)
+    ##store the cluster probabilities
+    prob[[i]] = clust$cluster.probabilities[,oldnum]
+    means[[i]] = clust$cluster.means[,oldnum]
+    lower[[i]] = clust$cluster.lower[,oldnum]
+    upper[[i]] = clust$cluster.upper[,oldnum]
+    individual[[i]] = clust$individual.fits.y[[oldnum]]
+  }
+  for(i in 1:length(df[,1])){
+    clust$cluster.assignments[ass[[i]]] = i
+    clust$cluster.probabilities[,i] = prob[[i]]
+    clust$cluster.means[,i] = means[[i]]
+    clust$cluster.lower[,i] = lower[[i]]
+    clust$cluster.upper[,i] = upper[[i]]
+    clust$individual.fits.y[[i]] = individual[[i]]
+  }
+  return(clust)
+}
