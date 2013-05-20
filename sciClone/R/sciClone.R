@@ -157,17 +157,6 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       purities=c()
       print("estimating purity")
 
-      ## ## Perform 1D clustering of each dimension independently - use the max cluster to estimate purity.
-      ## marginalClust = list()
-      ## vafs.1d = list()
-      ## for(i in 1:dimensions){
-      ##   dclust = clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE],
-      ##     maximumClusters, clusterMethod, clusterParams, FALSE)
-      ##   purities[i] = round(max(sort(dclust[["cluster.means"]]))*2*100,2)
-      ##   if(purities[[i]] > 100){
-      ##     purities[[i]] = 100;
-      ##   }
-
       ##do multi-d clustering of the data, use the higest point in the max cluster to estimate purity (outliers are removed in clustering)
       clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, clusterParams,
         samples=length(purities), plotIntermediateResults=0, verbose=0)
@@ -191,19 +180,6 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
           vafs.matrix[,i] = (vafs.matrix[,i]/purities[i])*100
         }
       }
-
-      ## ## use the median of the top 5% of points - this is stupid...
-      ## for(i in 1:dimensions){
-      ##   print(max(vafs.matrix[,i]))
-      ##   purities[i] = round(median(rev(sort(vafs.matrix[,i]))[1:round(length(vafs.matrix[,i])/20)])*2*100,2)
-      ##   print(paste("purity of sample",sampleNames[i],"is estimated to be",purities[i]))
-      ##   ##do the adjustment to the appropriate columns
-      ##   vafcols = grep("vaf$",names(vafs.merged))
-      ##   vafs.merged[,vafcols[i]] = (vafs.merged[,vafcols[i]]/purities[i])*100
-      ##   vafcols = grep("vaf$",names(vafs.merged))
-      ##   vafs.merged.cn2[,vafcols[i]] = (vafs.merged.cn2[,vafcols[i]]/purities[i])*100
-      ##   vafs.matrix[,i] = (vafs.matrix[,i]/purities[i])*100
-      ## }
 
     } else {
       purities = rep(100,dimensions)
