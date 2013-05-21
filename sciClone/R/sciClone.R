@@ -6,7 +6,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doPurityScaling=TRUE){
+                     doPurityScaling=TRUE,doClusteringAlongMargins=TRUE){
 
   if(verbose){print("checking input data...")}
 
@@ -195,13 +195,15 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     }
   }
 
-
   ##---------------------------------------------------
   ##do the clustering
   marginalClust = list()
   vafs.1d = list()
+  if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
+  if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
+  
   ## Perform 1D clustering of each dimension independently.
-  if(dimensions > 1){
+  if(doClusteringAlongMargins == TRUE){
     print("clustering each dimension independently")
     for(i in 1:dimensions){
       marginalClust[[i]]=clusterVafs(NULL, vafs.matrix[,i,drop=FALSE], vars.matrix[,i,drop=FALSE], refs.matrix[,i,drop=FALSE],
@@ -273,6 +275,23 @@ writeClusterSummaryTable <- function(sco, outputFile){
     write.table(t(sco@clust[["cluster.lower"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
     out <- paste(outputFile, ".upper", sep="")
     write.table(t(sco@clust[["cluster.upper"]]), file=out, append=FALSE, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE);
+}
+
+##------------------------------------------------------------------------------------------
+##  return an N x N connectivity matrix C where c_ij = 1 iff items i and j
+##  are co-clustered, for all items i,j = 1 to N.
+##
+getConnectivityMatrix <- function(sco){
+  vaf.table <- sco@vafs.merged
+  N <- dim(vaf.table)[1]
+  C <- matrix(data=0, ncol=N, nrow=N)
+  clusters <- vaf.table$cluster
+  for(i in 1:N) {
+    for(j in 1:N) {
+      if(!is.na(clusters[i]) & !is.na(clusters[j]) & (clusters[i] == clusters[j])) { C[i,j] <- 1 }
+    }
+  }
+  return(C)
 }
 
 ##--------------------------------------------------------------------
