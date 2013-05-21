@@ -6,7 +6,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doPurityScaling=TRUE,doClusteringAlongMargins=TRUE){
+                     doPurityScaling=FALSE,doClusteringAlongMargins=TRUE){
 
   if(verbose){print("checking input data...")}
 
