@@ -142,7 +142,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
     upper = intervals$ub
 
     if(dim(bmm.results$outliers)[1] > 0) {
-      print("Outliers:")
+      cat("Outliers:\n")
       print(bmm.results$outliers)
     }
 
@@ -180,7 +180,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
         #}
         #y[dim,] = y[dim,]/max(y[dim,])
     }
-
+    
     ##scale xvals between 1 and 100
     x = x*100
 
@@ -241,7 +241,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     upper = intervals$ub
 
     if(dim(bmm.results$outliers)[1] > 0) {
-      print("Outliers:")
+      cat("Outliers:\n")
       print(bmm.results$outliers)
     }
 
@@ -335,7 +335,7 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     upper = intervals$ub
 
     if(dim(bmm.results$outliers)[1] > 0) {
-      print("Outliers:")
+      cat("Outliers:\n")
       print(bmm.results$outliers)
     }
 
@@ -549,7 +549,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         apply.overlapping.std.dev.condition <- FALSE
         apply.uncertainty.self.overlap.condition <- TRUE
 
-        apply.outlier.condition <- FALSE        
+        apply.outlier.condition <- FALSE
+        apply.pvalue.outlier.condition <- TRUE                
 
         indices.to.keep <- rep(TRUE, N.c)
         remove.data <- FALSE
@@ -584,8 +585,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         } # End apply.min.items.condition
 
         if(all(indices.to.keep==TRUE) & (apply.outlier.condition == TRUE)) {
-          # Discard any points that are >= 2 std devs away from mean
-          ellipse.width <- as.double(erf(2/sqrt(2)))
+          # Discard any points that are >= 3 std devs away from mean
+          ellipse.width <- as.double(erf(1.5/sqrt(2)))
 
           # Calculate standard errors
           ellipse.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
@@ -597,23 +598,23 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           for(k in 1:N.c) {
             # Get all points belonging to cluster k
             cat("Cluster", k,"\n")
-            print(num.dimensions)
             print(ellipse.lb[k,])
             print(ellipse.ub[k,])                  
             indices <- (1:N)[clusters==k]
+            remove.i <- TRUE
+            #remove.i <- FALSE
             for(i in indices) {
-                if((X[i,1] > 0.15) & ( X[i,1] < 0.16)) {
-                  cat("Point ")
-                  for(n in 1:num.dimensions) {
-                    cat(X[i,n], " ")
-                  }
-                  cat("\n")
-                  print(ellipse.lb[k,])
-                  print(ellipse.ub[k,])                  
-                }
               for(m in 1:num.dimensions) {
                 lower <- ellipse.lb[k,m]
                 upper <- ellipse.ub[k,m]
+                # This commented out code requires all dimenions to
+                # be within the limits (to avoid being called an outlier)
+                if(!(X[i,m] < lower) & !(X[i,m] > upper)) {
+                  remove.i <- FALSE
+                  break
+                }
+                # This code requires only one dimension to be within
+                # the limits (to avoid being an outlier)
                 if((X[i,m] < lower) | (X[i,m] > upper)) {
                   cat("Point ")
                   for(n in 1:num.dimensions) {
@@ -625,10 +626,108 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                   removed.pt <- TRUE
                   do.inner.iteration <- TRUE
 
-                  outliers <- rbind(outliers, X[i,])
+                  outliers <- rbind(outliers, X[i,,drop=F])
                   # To remove data from the data set, set its entries to NA
                   X[i,] <- NA
                   break
+                }
+              }
+              if(remove.i) {
+                removed.pt <- TRUE
+                do.inner.iteration <- TRUE
+
+                cat("Point ")
+                for(n in 1:num.dimensions) {
+                  cat(X[i,n], " ")
+                }
+                cat("is outside of range.\n")
+                print(ellipse.lb[k,])
+                print(ellipse.ub[k,])
+                
+                outliers <- rbind(outliers, X[i,,drop=F])
+                # To remove data from the data set, set its entries to NA
+                X[i,] <- NA
+              }
+            }
+          }
+          if(removed.pt == TRUE) {
+            next
+          }
+        }
+        
+        if(all(indices.to.keep==TRUE) & (apply.pvalue.outlier.condition == TRUE)) {
+          # Remove any points with a p-value < 10^-2.  For efficiency,
+          # only do the detailed computation for those points having
+          # all dimensions outside 1 std.
+          ellipse.width <- as.double(erf(0.75/sqrt(2)))
+
+          # Calculate standard errors
+          ellipse.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+          ellipse.centers <- t(ellipse.res$centers)
+          ellipse.lb <- t(ellipse.res$lb)
+          ellipse.ub <- t(ellipse.res$ub)
+
+          removed.pt <- FALSE
+          pvalue.cutoff <- 10^-2
+          for(k in 1:N.c) {
+            # Get all points belonging to cluster k
+            scrutinize.i <- TRUE
+            indices <- (1:N)[clusters==k]            
+            for(i in indices) {
+              for(m in 1:num.dimensions) {
+                lower <- ellipse.lb[k,m]
+                upper <- ellipse.ub[k,m]
+                # This commented out code requires all dimenions to
+                # be within the limits (to avoid subsequent tests as
+                # a potential outlier)
+                if(!(X[i,m] < lower) & !(X[i,m] > upper)) {
+                  scrutinize.i <- FALSE
+                  break
+                }
+              }
+              if(scrutinize.i) {
+
+                num.samples <- 1000
+                proportions <- matrix(data=0, nrow=num.samples, ncol=num.dimensions)
+                for(m in 1:num.dimensions){
+                  proportions[,m] <- sample.bmm.component.proportion(mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+                }
+
+                probabilities <- rep(1, num.samples)
+                for(n in 1:num.samples) {
+                  for(m in 1:num.dimensions){
+                    probabilities[n] <- probabilities[n] * bmm.component.posterior.predictive.density(proportions[n,m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+                  }
+                }
+
+                i.prob <- 1
+                for(m in 1:num.dimensions){
+                  i.prob <- i.prob * bmm.component.posterior.predictive.density(X[i,m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+                }
+
+                
+                pvalue <- length((1:length(probabilities))[probabilities < i.prob]) / length(probabilities)
+
+                cat("Point (pvalue = ", pvalue, ") ", sep="")
+                for(n in 1:num.dimensions) {
+                  cat(X[i,n], " ")
+                }
+                cat("\n")
+
+                
+                if(pvalue < pvalue.cutoff) {
+                  removed.pt <- TRUE
+                  do.inner.iteration <- TRUE
+                  
+                  cat("Point ")
+                  for(n in 1:num.dimensions) {
+                    cat(X[i,n], " ")
+                  }
+                  cat(" has small pvalue = ", pvalue, "\n")
+                
+                  outliers <- rbind(outliers, X[i,,drop=F])
+                  # To remove data from the data set, set its entries to NA
+                  X[i,] <- NA
                 }
               }
             }
@@ -636,8 +735,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           if(removed.pt == TRUE) {
             next
           }
-          cat("Not fully implemented!  Have not actually removed any points outside n std devs\n")
-          q(status=-1)
         }
         
         if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
