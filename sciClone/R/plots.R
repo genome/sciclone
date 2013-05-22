@@ -258,7 +258,7 @@ sc.plot1d <- function(sco, outputFile,
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters,scale=1){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1){
 
   ## define plot colors
   ptcolor = colors[cn]
@@ -269,19 +269,19 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
-  addPoints <- function(data, color, highlightSexChrs, pch=NULL){
+  addPoints <- function(data, color, highlightSexChrs, pch=NULL, cex=0.75){
     outlineCol = rgb(0,0,0,0.1);
     if(highlightSexChrs){
       ##plot autosomes
       data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=0.75*scale, col=color);
+      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=cex*scale, col=color);
       #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol, lwd=);
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=0.75*scale, col=color);
+      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=cex*scale, col=color);
       #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
     } else {
-      points(data$vaf, data$depth, type="p", pch=16, cex=0.75*scale, col=color);
+      points(data$vaf, data$depth, type="p", pch=16, cex=cex*scale, col=color);
       ##add outline
       #points(data$vaf, data$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
     }
@@ -294,9 +294,16 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     if(any(grepl(pattern="^cluster$",names(data))) & overlayClusters & cn==2){
       numClusters=max(data[,c("cluster")],na.rm=T)
       cols = getClusterColors(numClusters)
+
+      ##plot cluster zero points in grey
+      p = data[data$cluster == 0,]
+      if(length(p[,1]) > 0){
+        addPoints(p, rgb(0,0,0,0.20), highlightSexChrs, cex=0.6)
+      }
+      ## then the clustered points
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
-        addPoints(p,cols[i],highlightSexChrs,pch=i)
+        addPoints(p,cols[i],highlightSexChrs)
       }
     } else { #just use the normal color
       addPoints(data,ptcolor,highlightSexChrs)
@@ -783,7 +790,6 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       cols = getClusterColors(numClusters)
       #create the plot
-      #layout(matrix(c(1,2),1,2, byrow=TRUE), widths=c(4,1), heights=c(1,1))
       plot(-100, -100, xlim=c(0,120), ylim=c(0,100), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
            xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
            bty="n", xaxt="n")
@@ -791,14 +797,12 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       segments(rep(-10,5),seq(0,100,20),rep(105,5),seq(0,100,20), lty=3, col="grey50")
 
-      #abline(h=seq(0,100,20),col="grey50", lty=3)
-
       axis(side=1,at=seq(0,100,20),labels=seq(0,100,20))
 
 
-      # If we will be highlighting some points, exclude them from
-      # the general list of points to plot and plot them instead with
-      # a different symbol/color (a black *)
+      ## If we will be highlighting some points, exclude them from
+      ## the general list of points to plot and plot them instead with
+      ## a different symbol/color (a black *)
       v.no.highlight <- v
       if(!(is.null(positionsToHighlight))) {
         names(positionsToHighlight)=c("chr","st","name");
@@ -814,8 +818,14 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       }
 
       if(!is.null(vafs.merged$cluster)) {
+        ## handle cluster 0 (outliers)
+        if(length(v.outlier[,1]) > 0){
+          points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3)
+        }
+        
         for(i in 1:numClusters){
           indices <- v.no.highlight$cluster==i
+
           if(overlayClusters){
             if(dim(v.no.highlight[indices,])[1] > 0) {
               if(overlayErrorBars == TRUE) {
@@ -825,7 +835,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
                 points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i)
               }
             }
-          } else {
+          } else { ##no overlay of clusters
             if(dim(v.no.highlight[indices,])[1] > 0) {
               if(overlayErrorBars == TRUE) {
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
