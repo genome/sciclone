@@ -93,7 +93,7 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
 ## Do clustering with bmm (beta mixture model)
 ##
 clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
-    library(bmm)
+    suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
@@ -141,7 +141,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
     lower = intervals$lb
     upper = intervals$ub
 
-    if(verbose){
+    if(dim(bmm.results$outliers)[1] > 0) {
       print("Outliers:")
       print(bmm.results$outliers)
     }
@@ -200,7 +200,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
 ## Do clustering with binomial bmm (binomial bayesian mixture model)
 ##
 clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
-    library(bmm)
+    suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
@@ -240,7 +240,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     lower = intervals$lb
     upper = intervals$ub
 
-    if(verbose){
+    if(dim(bmm.results$outliers)[1] > 0) {
       print("Outliers:")
       print(bmm.results$outliers)
     }
@@ -294,7 +294,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
 ## Do clustering with gaussian bmm (gaussian bayesian mixture model)
 ##
 clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
-    library(bmm)
+    suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
@@ -334,7 +334,7 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     lower = intervals$lb
     upper = intervals$ub
 
-    if(verbose){
+    if(dim(bmm.results$outliers)[1] > 0) {
       print("Outliers:")
       print(bmm.results$outliers)
     }
@@ -402,6 +402,18 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
         individual.fits.y = yms))
 }
 
+# Calculate self overlap as defined by White and Shalloway; Phys Rev E 2009
+calculate.self.overlap <- function(r) {
+  N.c <- dim(r)[2]
+  N <- dim(r)[1]
+  overlaps <- rep(0, N.c)
+  ones <- rep(1, N)
+  for(k in 1:N.c) {
+    overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
+  }
+  return(overlaps)
+}
+
 ## ##--------------------------------------------------------------------------
 ## ## The beta distribution clustering + filtering method
 ## ##
@@ -448,7 +460,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       std.dev.centers <- 100 * t(std.dev.res$centers)
       std.dev.lb <- 100 * t(std.dev.res$lb)
       std.dev.ub <- 100 * t(std.dev.res$ub)
-
       ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
 
       #sc.plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], ellipse.metadata=ellipse.metadata)
@@ -458,13 +469,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     # Outer while loop: following convergence of inner loop, apply
     # overlapping cluster condition to drop any overlapping clusters.
     while(TRUE) {
-
-        #print(dim(X))
-        #print(N.c)
-        #print(N)
-        #print(length(c0))
-        #print(dim(r))
-        #print(length(colSums(r)))
 
         if(plotIntermediateResults > 0) {
           max.iterations <- plotIntermediateResults
@@ -545,107 +549,101 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         apply.overlapping.std.dev.condition <- FALSE
         apply.uncertainty.self.overlap.condition <- TRUE
 
-        if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-            # threshold.pts <- 10
-            threshold.pts <- 3
+        apply.outlier.condition <- FALSE        
 
-            clusters <- hardClusterAssignments(N,N.c,r)
+        indices.to.keep <- rep(TRUE, N.c)
+        remove.data <- FALSE
+        
+        clusters <- hardClusterAssignments(N,N.c,r)
+
+        if((apply.min.items.condition == TRUE) & (N.c > 1)) {
+            threshold.pts <- 3
 
             num.items.per.cluster <- rep(0, N.c)
             for(n in 1:N) {
                 num.items.per.cluster[clusters[n]] <- num.items.per.cluster[clusters[n]] + 1
             }
 
-            non.zero.indices <- num.items.per.cluster >= threshold.pts
+            indices.to.keep <- num.items.per.cluster >= threshold.pts
 
-            if ( any(non.zero.indices==FALSE) ) {
-
-                do.inner.iteration <- TRUE
-
-                numeric.indices <- (1:N.c)
-                if(verbose){
-                  cat("Dropping clusters with pts: \n")
-                  print(num.items.per.cluster[!non.zero.indices])
-                }
-
-                remove.data <- TRUE
-                if (remove.data == TRUE) {
-                    numeric.indices <- (1:N.c)[non.zero.indices]
-                    new.outliers <- matrix(X[!(clusters %in% numeric.indices),], ncol=num.dimensions)
-                    outliers <- rbind(outliers, new.outliers)
-                }
-
-                # To remove data from the data set, set its entries to NA
-                # X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
-                # N <- dim(X)[1]
-
-                X[!(clusters %in% numeric.indices),] <- NA
-                # N <- dim(X)[1] - dim(outliers)[1]
-
-                colnames(X) <- x.colnames
-
-                E.pi <- E.pi[non.zero.indices]
-                N.c <- length(E.pi)
-                E.pi.prev <- E.pi.prev[non.zero.indices]
-                c <- c[non.zero.indices]
-                c0 <- c0[non.zero.indices]
-
-                # debugging for the issue of mismatched matrix size #
-                #print("line 248");
-                #print(dim(r));
-                #print(dim(r[,non.zero.indices]));
-                #print(N);
-                #print(N.c);
-                #print(summary(factor(non.zero.indices)));
-
-                # Don't resize r and ln.rho matrices to accomodate removed
-                # outliers, instead we will have set their rows to NA above.
-                # r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                # ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                # But do drop any columns corresponding to dropped clusters
-                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)
-                # Need to renormalize r--do it gently.
-                for(n in 1:N) {
-                    if(any(is.na(ln.rho[n,]))) {
-                      r[n,] <- rep(NA, N.c)
-                      next
-                    }
-
-                    row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
-                    for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
-                }
-
-                mu <- matrix(mu[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                nu <- matrix(nu[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                mu0 <- matrix(mu0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                nu0 <- matrix(nu0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                alpha <- matrix(alpha[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                beta <- matrix(beta[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                alpha0 <- matrix(alpha0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                beta0 <- matrix(beta0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                ubar <- matrix(ubar[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                vbar <- matrix(vbar[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                E.pi.prev <- E.pi
-
-                E.lnpi <- E.lnpi[non.zero.indices]
-                E.lnu <- E.lnu[non.zero.indices]
-                E.lnv <- E.lnv[non.zero.indices]
-                E.quadratic.u <- matrix(E.quadratic.u[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                E.quadratic.v <- matrix(E.quadratic.v[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-
+            # If we are remoing any small clusters ...
+            if(any(indices.to.keep==FALSE)) {
+              # Calculate the self-overlaps of all clusters
+              overlaps <- calculate.self.overlap(r)
+              # If any of the clusters to be removed have high self-overlap
+              # (i.e., have items highly assigned to them) ...
+              if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+                # Drop the items as well as the clusters ...
+                #remove.data <- TRUE
+                # But drop items (and clusters) for small clusters with highly
+                # assigned items.  We can drop other small clusters (with
+                # weakly assigned) later if they remain small.
+                indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )                
+              }
             }
         } # End apply.min.items.condition
 
-        if((apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
+        if(all(indices.to.keep==TRUE) & (apply.outlier.condition == TRUE)) {
+          # Discard any points that are >= 2 std devs away from mean
+          ellipse.width <- as.double(erf(2/sqrt(2)))
 
-            overlaps <- rep(0, N.c)
-            ones <- rep(1, N)
-            indices.to.keep.boolean <- rep(TRUE, N.c)
-            # Just drop min overlap
-            for(k in 1:N.c) {
-                overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
+          # Calculate standard errors
+          ellipse.res <- bmm.narrowest.proportion.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
+          ellipse.centers <- t(ellipse.res$centers)
+          ellipse.lb <- t(ellipse.res$lb)
+          ellipse.ub <- t(ellipse.res$ub)
+
+          removed.pt <- FALSE
+          for(k in 1:N.c) {
+            # Get all points belonging to cluster k
+            cat("Cluster", k,"\n")
+            print(num.dimensions)
+            print(ellipse.lb[k,])
+            print(ellipse.ub[k,])                  
+            indices <- (1:N)[clusters==k]
+            for(i in indices) {
+                if((X[i,1] > 0.15) & ( X[i,1] < 0.16)) {
+                  cat("Point ")
+                  for(n in 1:num.dimensions) {
+                    cat(X[i,n], " ")
+                  }
+                  cat("\n")
+                  print(ellipse.lb[k,])
+                  print(ellipse.ub[k,])                  
+                }
+              for(m in 1:num.dimensions) {
+                lower <- ellipse.lb[k,m]
+                upper <- ellipse.ub[k,m]
+                if((X[i,m] < lower) | (X[i,m] > upper)) {
+                  cat("Point ")
+                  for(n in 1:num.dimensions) {
+                    cat(X[i,n], " ")
+                  }
+                  cat("is outside of range.\n")
+                  print(ellipse.lb[k,])
+                  print(ellipse.ub[k,])
+                  removed.pt <- TRUE
+                  do.inner.iteration <- TRUE
+
+                  outliers <- rbind(outliers, X[i,])
+                  # To remove data from the data set, set its entries to NA
+                  X[i,] <- NA
+                  break
+                }
+              }
             }
+          }
+          if(removed.pt == TRUE) {
+            next
+          }
+          cat("Not fully implemented!  Have not actually removed any points outside n std devs\n")
+          q(status=-1)
+        }
+        
+        if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
+
+            # Just drop min overlap
+            overlaps <- calculate.self.overlap(r)
 
             if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
                 for(k in 1:N.c) {
@@ -653,7 +651,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     # We'll remove them later.
                     if(is.nan(overlaps[k])) { next }
                     if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
-                        indices.to.keep.boolean[k] <- FALSE
+                        indices.to.keep[k] <- FALSE
+                        cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))                        
                         break
                     }
                 }
@@ -664,70 +663,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", k, E.pi[k], overlaps[k]))
               }
             }
-            indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
 
-            if(length(indices.to.keep) != N.c) {
-
-                do.inner.iteration <- TRUE
-
-                means <- matrix(ubar/(ubar+vbar), nrow=num.dimensions, ncol=N.c)
-                if(length(indices.to.keep) < N.c) {
-                    indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
-                    for(i in 1:length(indices.to.drop)) {
-                        index <- indices.to.drop[i]
-                        if(verbose){
-                          cat("Self-overlap condition: Dropping cluster with center: ")
-                          for(l in 1:num.dimensions) {
-                            cat(sprintf("%.3f ", means[l, index]))
-                          }
-                          cat("\n")
-                        }
-                    }
-                }
-
-                # NB: only removing clusters here, not data points
-                E.pi <- E.pi[indices.to.keep]
-                N.c <- length(E.pi)
-                E.pi.prev <- E.pi.prev[indices.to.keep]
-                c <- c[indices.to.keep]
-                c0 <- c0[indices.to.keep]
-
-                r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
-                # Need to renormalize r--do it gently.
-                for(n in 1:N) {
-                    if(any(is.na(ln.rho[n,]))) {
-                      r[n,] <- rep(NA, N.c)
-                      next
-                    }
-
-                    row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
-                    for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
-                }
-
-                mu <- matrix(mu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu <- matrix(nu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                mu0 <- matrix(mu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu0 <- matrix(nu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha <- matrix(alpha[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta <- matrix(beta[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha0 <- matrix(alpha0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta0 <- matrix(beta0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                ubar <- matrix(ubar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                vbar <- matrix(vbar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.pi.prev <- E.pi
-
-                E.lnpi <- E.lnpi[indices.to.keep]
-                E.lnu <- E.lnu[indices.to.keep]
-                E.lnv <- E.lnv[indices.to.keep]
-                E.quadratic.u <- matrix(E.quadratic.u[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.quadratic.v <- matrix(E.quadratic.v[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-
-
-            }
         } # End apply.uncertainty.self.overlap.condition
 
-        if((apply.large.SEM.condition == TRUE) & (N.c > 1)) {
+        if(all(indices.to.keep==TRUE) &(apply.large.SEM.condition == TRUE) & (N.c > 1)) {
 
             # Calculate standard error of the means
             SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, width)
@@ -741,13 +680,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             std.dev.lb <- t(std.dev.res$lb)
             std.dev.ub <- t(std.dev.res$ub)
 
-            indices.to.keep.boolean <- rep(TRUE, N.c)
-
-            if(verbose){
-              show.output <- TRUE
-            }
             for(k in 1:N.c) {
-                if (show.output) {
+                if (verbose) {
                     cat(sprintf("%dD: Cluster %d pi = %.3f: ", num.dimensions, k, E.pi[k]))
                 }
                 greater.than.30 <- TRUE
@@ -764,96 +698,25 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     #if(SEM.width>.02){ greater.than.02 <- TRUE }
                     if((SEM.width/std.dev.width)<=.3){ greater.than.30 <- FALSE }
                     if(SEM.width<=SEM.width.threshold){ greater.than.02 <- FALSE }
-                    if (show.output) {
+                    if (verbose) {
                         cat(sprintf("%.3f (%.3f, %.3f) [(%.3f) %.3f, %.3f] {%.3f} ", center, lower, upper, width, std.dev.lb[k,m], std.dev.ub[k,m], SEM.width/std.dev.width))
                         if(greater.than.30) { cat("* ") }
                         if(greater.than.02) { cat("**") }
                     }
                 }
-                if (show.output) {
+                if (verbose) {
                     cat("\n")
                 }
-                if(greater.than.30 & greater.than.02) { indices.to.keep.boolean[k] <- FALSE }
+                if(greater.than.30 & greater.than.02) { indices.to.keep[k] <- FALSE }
             }
 
-            non.zero.indices <- indices.to.keep.boolean
-
-            if ( any(non.zero.indices==FALSE) ) {
-
-                do.inner.iteration <- TRUE
-                numeric.indices <- (1:N.c)
-
-                if(verbose){
-                  cat("Removing clusters because of SEM condition: \n")
-                  print(numeric.indices[non.zero.indices])
-                }
-
-                clusters <- hardClusterAssignments(N,N.c,r)
-
+            if ( any(indices.to.keep==FALSE) ) {
                 remove.data <- TRUE
-                if (remove.data == TRUE) {
-                    numeric.indices <- (1:N.c)[non.zero.indices]
-                    new.outliers <- matrix(X[!(clusters %in% numeric.indices),], ncol=num.dimensions)
-                    outliers <- rbind(outliers, new.outliers)
-                }
-
-                # To remove data from the data set, set its entries to NA
-                # X <- matrix(X[clusters %in% numeric.indices,], ncol=num.dimensions)
-                # N <- dim(X)[1]
-                X[!(clusters %in% numeric.indices),] <- NA
-                # N <- dim(X)[1] - dim(outliers)[1]
-
-                colnames(X) <- x.colnames
-
-                E.pi <- E.pi[non.zero.indices]
-                N.c <- length(E.pi)
-                E.pi.prev <- E.pi.prev[non.zero.indices]
-                c <- c[non.zero.indices]
-                c0 <- c0[non.zero.indices]
-
-                # Don't resize r and ln.rho matrices to accomodate removed
-                # outliers, instead we will have set their rows to NA above.
-                # r <- matrix(r[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                # ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,non.zero.indices], nrow=N, ncol=N.c)
-                # But do drop any columns corresponding to dropped clusters
-                r <- matrix(r[,non.zero.indices], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,non.zero.indices], nrow=N, ncol=N.c)
-
-                # Need to renormalize r--do it gently.
-                for(n in 1:N) {
-                    if(any(is.na(ln.rho[n,]))) {
-                      r[n,] <- rep(NA, N.c)
-                      next
-                    }
-
-                    row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
-                    for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
-                }
-
-                mu <- matrix(mu[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                nu <- matrix(nu[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                mu0 <- matrix(mu0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                nu0 <- matrix(nu0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                alpha <- matrix(alpha[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                beta <- matrix(beta[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                alpha0 <- matrix(alpha0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                beta0 <- matrix(beta0[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                ubar <- matrix(ubar[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                vbar <- matrix(vbar[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                E.pi.prev <- E.pi
-
-                E.lnpi <- E.lnpi[non.zero.indices]
-                E.lnu <- E.lnu[non.zero.indices]
-                E.lnv <- E.lnv[non.zero.indices]
-                E.quadratic.u <- matrix(E.quadratic.u[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-                E.quadratic.v <- matrix(E.quadratic.v[,non.zero.indices], nrow=num.dimensions, ncol=N.c)
-
-
             }
 
         } # End apply.large.SEM.condition
 
-        if((apply.overlapping.SEM.condition == TRUE) & (N.c > 1)) {
+        if(all(indices.to.keep==TRUE) & (apply.overlapping.SEM.condition == TRUE) & (N.c > 1)) {
 
             # Calculate standard error of the means
             SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, width)
@@ -867,7 +730,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             std.dev.lb <- t(std.dev.res$lb)
             std.dev.ub <- t(std.dev.res$ub)
 
-            indices.to.keep.boolean <- rep(TRUE, N.c)
             # Determine if component i's center is contained within
             # component i2's std.dev
             pi.threshold = 10^-2
@@ -876,7 +738,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 i.subsumed.by.another.cluster <- FALSE
                 for(i2 in 1:N.c){
                     if(i == i2) { next }
-                    if(indices.to.keep.boolean[i2] == FALSE) { next }
+                    if(indices.to.keep[i2] == FALSE) { next }
                     if(E.pi[i2] < pi.threshold) { next }
                     i.subsumed.by.another.cluster <- TRUE
                     for(l in 1:num.dimensions){
@@ -902,74 +764,12 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     }
                 }
                 if(i.subsumed.by.another.cluster==TRUE) {
-                    indices.to.keep.boolean[i] <- FALSE
+                    indices.to.keep[i] <- FALSE
                 }
             }
-
-            indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
-
-            if(length(indices.to.keep) != N.c) {
-
-                do.inner.iteration <- TRUE
-
-                means <- matrix(ubar/(ubar+vbar), nrow=num.dimensions, ncol=N.c)
-                if(length(indices.to.keep) < N.c) {
-                    indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
-                    for(i in 1:length(indices.to.drop)) {
-                        index <- indices.to.drop[i]
-                        if(verbose){
-                          cat("3. Dropping cluster with center: ")
-                          for(l in 1:num.dimensions) {
-                            cat(sprintf("%.3f ", means[l, index]))
-                          }
-                          cat("\n")
-                        }
-                    }
-                }
-
-                # NB: only removing clusters here, not data points
-                E.pi <- E.pi[indices.to.keep]
-                N.c <- length(E.pi)
-                E.pi.prev <- E.pi.prev[indices.to.keep]
-                c <- c[indices.to.keep]
-                c0 <- c0[indices.to.keep]
-
-                r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
-                # Need to renormalize r--do it gently.
-                for(n in 1:N) {
-                    if(any(is.na(ln.rho[n,]))) {
-                      r[n,] <- rep(NA, N.c)
-                      next
-                    }
-
-                    row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
-                    for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
-                }
-
-                mu <- matrix(mu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu <- matrix(nu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                mu0 <- matrix(mu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu0 <- matrix(nu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha <- matrix(alpha[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta <- matrix(beta[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha0 <- matrix(alpha0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta0 <- matrix(beta0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                ubar <- matrix(ubar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                vbar <- matrix(vbar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.pi.prev <- E.pi
-
-                E.lnpi <- E.lnpi[indices.to.keep]
-                E.lnu <- E.lnu[indices.to.keep]
-                E.lnv <- E.lnv[indices.to.keep]
-                E.quadratic.u <- matrix(E.quadratic.u[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.quadratic.v <- matrix(E.quadratic.v[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-
-            }
-
         } # End apply.overlapping.SEM.condition
 
-        if((apply.overlapping.std.dev.condition == TRUE) & (N.c > 1)) {
+        if(all(indices.to.keep==TRUE) & (apply.overlapping.std.dev.condition == TRUE) & (N.c > 1)) {
 
             # Calculate standard error of the means
             SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, width)
@@ -983,7 +783,6 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             std.dev.lb <- t(std.dev.res$lb)
             std.dev.ub <- t(std.dev.res$ub)
 
-            indices.to.keep.boolean <- rep(TRUE, N.c)
             # Determine how much component i's std dev overlaps component i2's std dev
             overlaps <- matrix(data = 1, nrow=N.c, ncol=N.c)
             std.dev.overlap.threshold <- 0
@@ -1000,7 +799,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                             fraction <- overlap / ( std.dev.ub[i,l] - std.dev.lb[i,l] )
                         }
                         if((fraction > std.dev.overlap.threshold) & (overlaps[i,i2] != 0)) {
-                            overlaps[i,i2] <- 1
+                            overlaps[i,i2] <- fraction
                         } else {
                             overlaps[i,i2] <- 0
                         }
@@ -1012,86 +811,92 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
             # Remove one of two overlapping clusters.  If both overlap
             # (NB: above is not symmetric), then only remove smaller of two.
+            save.verbose <- verbose
+            verbose <- TRUE
             for(i in 2:N.c){
-                if(indices.to.keep.boolean[i] == FALSE) { next }
+                if(indices.to.keep[i] == FALSE) { next }
                 for(i2 in 1:(i-1)){
-                    if(indices.to.keep.boolean[i2] == FALSE) { next }
-                    if(overlaps[i,i2] == 1) {
-                        if((overlaps[i2,i] == 1) & (E.pi[i2] < E.pi[i])) {
-                          if(verbose){cat("Removing ", i2, " because of overlap with i = ", i, "\n")}
-                            indices.to.keep.boolean[i2] <- FALSE
+                    if(indices.to.keep[i2] == FALSE) { next }
+                    if(overlaps[i,i2] > 0) {
+                        if((overlaps[i2,i] > 0) & (E.pi[i2] < E.pi[i])) {
+                          if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i2, " because of overlap (", overlaps[i2,i], ") with i = ", i, "\n")}
+                            indices.to.keep[i2] <- FALSE
                         } else {
-                            if(verbose){cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")}
-                            indices.to.keep.boolean[i] <- FALSE
+                            if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i, " because of overlap (", overlaps[i2,i], ") with i2 = ", i2, "\n")}
+                            indices.to.keep[i] <- FALSE
                         }
                     }
                 }
             }
-
-            indices.to.keep <- (1:N.c)[indices.to.keep.boolean]
-
-            if(length(indices.to.keep) != N.c) {
-
-                do.inner.iteration <- TRUE
-
-                means <- matrix(ubar/(ubar+vbar), nrow=num.dimensions, ncol=N.c)
-                if(length(indices.to.keep) < N.c) {
-                    indices.to.drop <- (1:N.c)[!indices.to.keep.boolean]
-                    for(i in 1:length(indices.to.drop)) {
-                        index <- indices.to.drop[i]
-                        if(verbose){
-                          cat("4. Dropping cluster with center: ")
-                          for(l in 1:num.dimensions) {
-                            cat(sprintf("%.3f ", means[l, index]))
-                          }
-                          cat("\n")
-                        }
-                    }
-                }
-
-                # NB: only removing clusters here, not data points
-                E.pi <- E.pi[indices.to.keep]
-                N.c <- length(E.pi)
-                E.pi.prev <- E.pi.prev[indices.to.keep]
-                c <- c[indices.to.keep]
-                c0 <- c0[indices.to.keep]
-
-                r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
-                ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
-                # Need to renormalize r--do it gently.
-                for(n in 1:N) {
-                    if(any(is.na(ln.rho[n,]))) {
-                      r[n,] <- rep(NA, N.c)
-                      next
-                    }
-
-                    row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
-                    for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
-                }
-
-                mu <- matrix(mu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu <- matrix(nu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                mu0 <- matrix(mu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                nu0 <- matrix(nu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha <- matrix(alpha[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta <- matrix(beta[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                alpha0 <- matrix(alpha0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                beta0 <- matrix(beta0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                ubar <- matrix(ubar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                vbar <- matrix(vbar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.pi.prev <- E.pi
-
-                E.lnpi <- E.lnpi[indices.to.keep]
-                E.lnu <- E.lnu[indices.to.keep]
-                E.lnv <- E.lnv[indices.to.keep]
-                E.quadratic.u <- matrix(E.quadratic.u[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-                E.quadratic.v <- matrix(E.quadratic.v[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-
-            }
-
+            verbose <- save.verbose
+            
         } # End apply.overlapping.std.dev.condition
 
 
+        if ( any(indices.to.keep==FALSE) ) {
+
+          do.inner.iteration <- TRUE
+
+          numeric.indices <- (1:N.c)
+
+          E.pi <- E.pi[indices.to.keep]
+          E.lnpi <- E.lnpi[indices.to.keep]
+
+          N.c <- length(E.pi)
+          
+          if (remove.data == TRUE) {
+            cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
+            new.outliers <- matrix(X[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
+            outliers <- rbind(outliers, new.outliers)
+            # To remove data from the data set, set its entries to NA
+            X[!(clusters %in% cluster.indices.to.keep),] <- NA
+          }
+
+          colnames(X) <- x.colnames
+
+          E.pi <- E.pi[indices.to.keep]
+          N.c <- length(E.pi)
+          E.pi.prev <- E.pi.prev[indices.to.keep]
+          c <- c[indices.to.keep]
+          c0 <- c0[indices.to.keep]
+
+          # Don't resize r and ln.rho matrices to accomodate removed
+          # outliers, instead we will have set their rows to NA above.
+          # r <- matrix(r[clusters %in% numeric.indices,indices.to.keep], nrow=N, ncol=N.c)
+          # ln.rho <- matrix(ln.rho[clusters %in% numeric.indices,indices.to.keep], nrow=N, ncol=N.c)
+          # But do drop any columns corresponding to dropped clusters
+          r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
+          ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
+          # Need to renormalize r--do it gently.
+          for(n in 1:N) {
+            if(any(is.na(ln.rho[n,]))) {
+              r[n,] <- rep(NA, N.c)
+              next
+            }
+            
+            row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
+            for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
+          }
+          
+          mu <- matrix(mu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          nu <- matrix(nu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          mu0 <- matrix(mu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          nu0 <- matrix(nu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          alpha <- matrix(alpha[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          beta <- matrix(beta[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          alpha0 <- matrix(alpha0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          beta0 <- matrix(beta0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          ubar <- matrix(ubar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          vbar <- matrix(vbar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          E.pi.prev <- E.pi
+          
+          E.lnpi <- E.lnpi[indices.to.keep]
+          E.lnu <- E.lnu[indices.to.keep]
+          E.lnv <- E.lnv[indices.to.keep]
+          E.quadratic.u <- matrix(E.quadratic.u[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          E.quadratic.v <- matrix(E.quadratic.v[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
+          
+        }
         if(do.inner.iteration == FALSE) { break }
 
     } # End outer while(TRUE)
@@ -1207,7 +1012,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 10
+      threshold.pts <- 3
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1216,17 +1021,29 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
 
+      # If we are remoing any small clusters ...
+      if(any(indices.to.keep==FALSE)) {
+        # Calculate the self-overlaps of all clusters
+        overlaps <- calculate.self.overlap(r)
+        # If any of the clusters to be removed have high self-overlap
+        # (i.e., have items highly assigned to them) ...
+        if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+          # Drop the items as well as the clusters ...
+          #remove.data <- TRUE
+          # But drop items (and clusters) for small clusters with highly
+          # assigned items.  We can drop other small clusters (with
+          # weakly assigned) later if they remain small.
+          indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+        }
+      }
+      
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
     if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
-      overlaps <- rep(0, N.c)
-      ones <- rep(1, N)
-      # Just drop min overlap
-      for(k in 1:N.c) {
-        overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
-      }
+      # Just drop min overlap      
+      overlaps <- calculate.self.overlap(r)
 
       if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
         for(k in 1:N.c) {
@@ -1235,6 +1052,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           if(is.nan(overlaps[k])) { next }
           if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
             indices.to.keep[k] <- FALSE
+            cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))
             break
           }
         }
@@ -1362,7 +1180,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
               fraction <- overlap / ( std.dev.ub[i,l] - std.dev.lb[i,l] )
             }
             if((fraction > std.dev.overlap.threshold) & (overlaps[i,i2] != 0)) {
-              overlaps[i,i2] <- 1
+              overlaps[i,i2] <- fraction
             } else {
               overlaps[i,i2] <- 0
             }
@@ -1372,21 +1190,24 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       # Remove one of two overlapping clusters.  If both overlap
       # (NB: above is not symmetric), then only remove smaller of two.
+      save.verbose <- verbose
+      verbose <- TRUE
       for(i in 2:N.c){
         if(indices.to.keep[i] == FALSE) { next }
         for(i2 in 1:(i-1)){
           if(indices.to.keep[i2] == FALSE) { next }
-          if(overlaps[i,i2] == 1) {
-            if((overlaps[i2,i] == 1) & (E.pi[i2] < E.pi[i])) {
-              if(verbose){cat("Removing ", i2, " because of overlap with i = ", i, "\n")}
+          if(overlaps[i,i2] > 0) {
+            if((overlaps[i2,i] > 0) & (E.pi[i2] < E.pi[i])) {
+              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i2, " because of overlap (", overlaps[i2,i], ") with i = ", i, "\n")}
               indices.to.keep[i2] <- FALSE
             } else {
-              if(verbose){cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")}
+              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i, " because of overlap (", overlaps[i2,i], ") with i2 = ", i2, "\n")}
               indices.to.keep[i] <- FALSE
             }
           }
         }
       }
+      verbose <- save.verbose      
     } # End apply.overlapping.std.dev.condition
 
 
@@ -1433,7 +1254,6 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       E.pi.prev <- E.pi
     }
-
     if(do.inner.iteration == FALSE) { break }
 
   }
@@ -1513,8 +1333,9 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     clusters <- hardClusterAssignments(N,N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
+    
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 10
+      threshold.pts <- 3
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1523,17 +1344,29 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
 
+      # If we are remoing any small clusters ...
+      if(any(indices.to.keep==FALSE)) {
+        # Calculate the self-overlaps of all clusters
+        overlaps <- calculate.self.overlap(r)
+        # If any of the clusters to be removed have high self-overlap
+        # (i.e., have items highly assigned to them) ...
+        if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+          # Drop the items as well as the clusters ...
+          #remove.data <- TRUE
+          # But drop items (and clusters) for small clusters with highly
+          # assigned items.  We can drop other small clusters (with
+          # weakly assigned) later if they remain small.
+          indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+        }
+      }
+      
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
     if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
-      overlaps <- rep(0, N.c)
-      ones <- rep(1, N)
-      # Just drop min overlap
-      for(k in 1:N.c) {
-        overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
-      }
+      # Just drop min overlap      
+      overlaps <- calculate.self.overlap(r)
 
       if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
         for(k in 1:N.c) {
@@ -1542,6 +1375,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           if(is.nan(overlaps[k])) { next }
           if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
             indices.to.keep[k] <- FALSE
+            cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f\n", num.dimensions, k, E.pi[k], overlaps[k]))            
             break
           }
         }
@@ -1669,7 +1503,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
               fraction <- overlap / ( std.dev.ub[i,l] - std.dev.lb[i,l] )
             }
             if((fraction > std.dev.overlap.threshold) & (overlaps[i,i2] != 0)) {
-              overlaps[i,i2] <- 1
+              overlaps[i,i2] <- fraction
             } else {
               overlaps[i,i2] <- 0
             }
@@ -1679,21 +1513,24 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       # Remove one of two overlapping clusters.  If both overlap
       # (NB: above is not symmetric), then only remove smaller of two.
+      save.verbose <- verbose
+      verbose <- TRUE
       for(i in 2:N.c){
         if(indices.to.keep[i] == FALSE) { next }
         for(i2 in 1:(i-1)){
           if(indices.to.keep[i2] == FALSE) { next }
-          if(overlaps[i,i2] == 1) {
-            if((overlaps[i2,i] == 1) & (E.pi[i2] < E.pi[i])) {
-              if(verbose){cat("Removing ", i2, " because of overlap with i = ", i, "\n")}
+          if(overlaps[i,i2] > 0) {
+            if((overlaps[i2,i] > 0) & (E.pi[i2] < E.pi[i])) {
+              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i2, " because of overlap (", overlaps[i2,i], ") with i = ", i, "\n")}
               indices.to.keep[i2] <- FALSE
             } else {
-              if(verbose){cat("Removing ", i, " because of overlap with i2 = ", i2, "\n")}
+              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i, " because of overlap (", overlaps[i2,i], ") with i2 = ", i2, "\n")}
               indices.to.keep[i] <- FALSE
             }
           }
         }
       }
+      verbose <- save.verbose
     } # End apply.overlapping.std.dev.condition
 
 

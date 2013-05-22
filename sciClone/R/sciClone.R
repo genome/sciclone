@@ -210,7 +210,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      maximumClusters, clusterMethod, clusterParams, FALSE)
       if(verbose){print(paste("finished 1d clustering", sampleNames[i], "..."))}
       numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
-      print(paste("found",numClusters,"clusters"))
+      print(paste("found",numClusters,"clusters using", clusterMethod, "in dimension",sampleNames[i]))
 
       vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
       vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
@@ -246,7 +246,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     vafs.merged = merge(vafs.merged,vafs.merged.cn2, by.x=c(1:length(vafs.merged)), by.y=c(1:length(vafs.merged)),all.x=TRUE)
     ##sort by chr, st
     vafs.merged = vafs.merged[order(vafs.merged[,1], vafs.merged[,2]),]
-    print(paste("found",numClusters,"clusters"))
+    print(paste("found",numClusters,"clusters using", clusterMethod, "in full dimensional data"))
   }
 
   if(!is.null(annotation)) {
@@ -298,7 +298,7 @@ getConnectivityMatrix <- function(sco){
 ## intersect the variants with CN calls to classify them
 ##
 addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
-  library(IRanges)
+  suppressPackageStartupMessages(library(IRanges))
   vafs$cn = NA
   vafs$cleancn = NA
   ##for each chromosome
@@ -338,7 +338,6 @@ addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
   return(vafs)
 }
 
-
 ##--------------------------------------------------------------------
 ## intersect the variants with the regionsToExclude to remove them
 ##
@@ -358,7 +357,7 @@ excludeRegions <- function(vafs,regionsToExclude){
   regs = regs[order(regs[,1], regs[,2]),]
 
 
-  library(IRanges);
+  suppressPackageStartupMessages(library(IRanges))
   ##for each chromosome, find variants falling inside regions to be excluded
   for(chr in names(table(regs[,1]))){
     vars = IRanges(start=as.numeric(as.character(vafs[vafs$chr==chr,]$st)),
@@ -580,6 +579,9 @@ reorderClust <- function(clust){
     lower[[i]] = clust$cluster.lower[,oldnum]
     upper[[i]] = clust$cluster.upper[,oldnum]
     individual[[i]] = clust$individual.fits.y[[oldnum]]
+    if(is.null(clust$individual.fits.y[[oldnum]])) {
+      individual[[i]] = 0
+    }
   }
   for(i in 1:length(df[,1])){
     clust$cluster.assignments[ass[[i]]] = i
