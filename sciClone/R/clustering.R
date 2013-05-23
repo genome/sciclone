@@ -554,11 +554,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
         indices.to.keep <- rep(TRUE, N.c)
         remove.data <- FALSE
+
+        remove.data.from.small.clusters <- FALSE      
         
         clusters <- hardClusterAssignments(N,N.c,r)
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-            threshold.pts <- 3
+            threshold.pts <- max(3, ceiling(.005*N))          
 
             num.items.per.cluster <- rep(0, N.c)
             for(n in 1:N) {
@@ -567,19 +569,21 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
             indices.to.keep <- num.items.per.cluster >= threshold.pts
 
-            # If we are remoing any small clusters ...
-            if(any(indices.to.keep==FALSE)) {
-              # Calculate the self-overlaps of all clusters
-              overlaps <- calculate.self.overlap(r)
-              # If any of the clusters to be removed have high self-overlap
-              # (i.e., have items highly assigned to them) ...
-              if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
-                # Drop the items as well as the clusters ...
-                #remove.data <- TRUE
-                # But drop items (and clusters) for small clusters with highly
-                # assigned items.  We can drop other small clusters (with
-                # weakly assigned) later if they remain small.
-                indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )                
+            if(remove.data.from.small.clusters == TRUE) {
+              # If we are remoing any small clusters ...
+              if(any(indices.to.keep==FALSE)) {
+                # Calculate the self-overlaps of all clusters
+                overlaps <- calculate.self.overlap(r)
+                # If any of the clusters to be removed have high self-overlap
+                # (i.e., have items highly assigned to them) ...
+                if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+                  # Drop the items as well as the clusters ...
+                  remove.data <- TRUE
+                  # But drop items (and clusters) for small clusters with highly
+                  # assigned items.  We can drop other small clusters (with
+                  # weakly assigned) later if they remain small.
+                  indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )                
+                }
               }
             }
         } # End apply.min.items.condition
@@ -1105,11 +1109,13 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # that we remove
     remove.data <- FALSE
 
+    remove.data.from.small.clusters <- FALSE
+    
     clusters <- hardClusterAssignments(N,N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 3
+      threshold.pts <- max(3, ceiling(.005*N))          
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1118,19 +1124,21 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
 
-      # If we are remoing any small clusters ...
-      if(any(indices.to.keep==FALSE)) {
-        # Calculate the self-overlaps of all clusters
-        overlaps <- calculate.self.overlap(r)
-        # If any of the clusters to be removed have high self-overlap
-        # (i.e., have items highly assigned to them) ...
-        if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
-          # Drop the items as well as the clusters ...
-          #remove.data <- TRUE
-          # But drop items (and clusters) for small clusters with highly
-          # assigned items.  We can drop other small clusters (with
-          # weakly assigned) later if they remain small.
-          indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+      if(remove.data.from.small.clusters == TRUE) {
+        # If we are remoing any small clusters ...
+        if(any(indices.to.keep==FALSE)) {
+          # Calculate the self-overlaps of all clusters
+          overlaps <- calculate.self.overlap(r)
+          # If any of the clusters to be removed have high self-overlap
+          # (i.e., have items highly assigned to them) ...
+          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+            # Drop the items as well as the clusters ...
+            remove.data <- TRUE
+            # But drop items (and clusters) for small clusters with highly
+            # assigned items.  We can drop other small clusters (with
+            # weakly assigned) later if they remain small.
+            indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+          }
         }
       }
       
@@ -1427,12 +1435,14 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # that we remove
     remove.data <- FALSE
 
+    remove.data.from.small.clusters <- FALSE      
+    
     clusters <- hardClusterAssignments(N,N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- 3
+      threshold.pts <- max(3, ceiling(.005*N))
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1441,19 +1451,21 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
       indices.to.keep <- num.items.per.cluster >= threshold.pts
 
-      # If we are remoing any small clusters ...
-      if(any(indices.to.keep==FALSE)) {
-        # Calculate the self-overlaps of all clusters
-        overlaps <- calculate.self.overlap(r)
-        # If any of the clusters to be removed have high self-overlap
-        # (i.e., have items highly assigned to them) ...
-        if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
-          # Drop the items as well as the clusters ...
-          #remove.data <- TRUE
-          # But drop items (and clusters) for small clusters with highly
-          # assigned items.  We can drop other small clusters (with
-          # weakly assigned) later if they remain small.
-          indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+      if(remove.data.from.small.clusters == TRUE) {
+        # If we are remoing any small clusters ...
+        if(any(indices.to.keep==FALSE)) {
+          # Calculate the self-overlaps of all clusters
+          overlaps <- calculate.self.overlap(r)
+          # If any of the clusters to be removed have high self-overlap
+          # (i.e., have items highly assigned to them) ...
+          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+            # Drop the items as well as the clusters ...
+            remove.data <- TRUE
+            # But drop items (and clusters) for small clusters with highly
+            # assigned items.  We can drop other small clusters (with
+            # weakly assigned) later if they remain small.
+            indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
+          }
         }
       }
       
