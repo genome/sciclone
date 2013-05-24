@@ -498,7 +498,7 @@ getDensity <- function(vafs){
             ##need two points for density calc
             if(length(v[,1]) > 1){
                 ##calculate the density
-                densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE)
+                densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE, adj=0.8)
                 factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
                 ##find the peaks
                 p = c(getPeaks(factors[[i]]),FALSE,FALSE)

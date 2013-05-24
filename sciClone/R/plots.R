@@ -68,9 +68,21 @@ sc.plot1d <- function(sco, outputFile,
   # 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly
   # if we have fewer rows.
   #pdf(file=outputFile, width=3.3, height=7.5, bg="white");
-  height <- 7.5
-  scale <- 5 / num.rows
-  width <- 3.3 * scale
+  height <- 8.5 * (num.rows/5)
+  width <- 3.7
+
+  spacing=1.0
+  scale=1
+  if(num.rows == 2){
+    spacing=1.5
+    scale=1.5
+  }
+  if(num.rows == 3){
+    spacing=1
+    scale=1
+  }
+    
+  
   pdf(file=outputFile, width=width, height=height, bg="white");
 
   numClusters = 0
@@ -86,7 +98,7 @@ sc.plot1d <- function(sco, outputFile,
     ##grab only the vafs for this sample:
     vafs = getOneSampleVafs(vafs.merged, name, numClusters);
 
-    par(mfcol=c(num.rows,1),mar=c(0.5*scale,3*scale,1*scale,1.5*scale),oma=c(3,0,4,0),mgp = c(3,1,0));
+    par(mfcol=c(num.rows,1),mar=c(0.5,3/spacing,1,1.5/spacing), oma=c(3.0/spacing, 0.5, 4/spacing, 0.5), mgp = c(3,1,0));
 
     densities = densityData[[d]]$densities
     factors = densityData[[d]]$factors
@@ -103,8 +115,8 @@ sc.plot1d <- function(sco, outputFile,
 
     ##plot bg color
     rect(0, 0, 100, 1.1, col = "#00000011",border=NA);
-    axis(side=2,at=c(0,1),labels=c(0, ""), las=1, cex.axis=0.6*scale, hadj=0.6,
-         lwd=0.5*scale, lwd.ticks=0.5*scale, tck=-0.01);
+    axis(side=2,at=c(0,2),labels=c("", ""), las=1, cex.axis=0.6, hadj=0.6,
+         lwd=0.5, lwd.ticks=0.5, tck=-0.01);
 
 
     ##colors for different copy numbers
@@ -114,7 +126,7 @@ sc.plot1d <- function(sco, outputFile,
     for(i in cnToPlot){
       if(!(is.null(densities[[i]])) & (!showHistogram | (i!= 2))){
         ##density lines
-        lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=density.curve.width*scale);
+        lines(densities[[i]]$x, scalingFactor*factors[[i]], col=colors[i], lwd=density.curve.width);
         ##peak labels
         if(length(peakHeights[[i]]) > 0){
           ppos = c();
@@ -127,7 +139,7 @@ sc.plot1d <- function(sco, outputFile,
           if(length(ppos) > 0){
             text(x=peakPos[[i]][ppos], y=(scalingFactor * peakHeights[[i]][ppos])+1.7,
                  labels=signif(peakPos[[i]][ppos],3),
-                 cex=0.7*scale, srt=0, col=colors[[i]]);
+                 cex=0.7, srt=0, col=colors[[i]]);
           }
         }
       } else if(showHistogram & (i == 2)) {
@@ -162,11 +174,11 @@ sc.plot1d <- function(sco, outputFile,
     if(!(is.null(clust))){
       maxFitDensity <- max(clust$fit.y[d,])
       #points(clust$fit.x, clust$fit.y[d,]*25, type="l",col="grey50")
-      lines(clust$fit.x, clust$fit.y[d,]/maxFitDensity, type="l",col="grey50",lty=model.style, lwd=model.width*scale)
+      lines(clust$fit.x, clust$fit.y[d,]/maxFitDensity, type="l",col="grey50",lty=model.style, lwd=model.width)
       if(overlayIndividualModels==TRUE) {
         for(i in 1:numClusters) {
           lines(clust$fit.x, clust$individual.fits.y[[i]][d,]/maxFitDensity,
-                type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width*scale)
+                type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width)
         }
       }
     }
@@ -211,12 +223,12 @@ sc.plot1d <- function(sco, outputFile,
         pchs = c(pchs, NA)
       }
     }
-    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6*scale, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
+    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6/scale, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
 
 
-    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6*scale,lwd=0.5*scale,lwd.ticks=0.5*scale,padj=1.4);
-    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1/scale,cex=0.6*scale,side=3);
-    mtext("Density (a.u.)",side=2,cex=0.6*scale,padj=-4.2/scale);
+    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6/scale, lwd=0.5, lwd.ticks=0.5,padj=((scale*3.5)-3.5)+1.4, tck=-0.05);
+    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.6,side=3);
+    mtext("Density (a.u.)",side=2,cex=0.6,padj=-4.2);
 
 
     ##add a title to the plot
@@ -227,7 +239,7 @@ sc.plot1d <- function(sco, outputFile,
       } else {
         title=paste(sampleNames[d],"Clonality Plot",sep=" ");
       }
-      mtext(title, adj=0.5, padj=-5/scale, cex=0.65*scale, side=3);
+      mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
     }
 
     ##-----------------------------------------------------
@@ -237,7 +249,7 @@ sc.plot1d <- function(sco, outputFile,
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
         drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale)
-        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6*scale,lwd=0.5*scale,lwd.ticks=0.5*scale,padj=-1.4);
+        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6/scale,lwd=0.5,lwd.ticks=0.5,padj=(-scale*5)+5-1.4, tck=-0.05);
 
 
         if(length(cnToPlot) < 2 & highlightsHaveNames){
@@ -260,12 +272,14 @@ sc.plot1d <- function(sco, outputFile,
 ##
 drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1){
 
+  cex.points = 1/scale
+  
   ## define plot colors
   ptcolor = colors[cn]
   circlecolor = substr(colors[cn],1,7) #chop off the alpha value
 
   ## define the plot space by plotting offscreen points
-  plot.default( x=-10000, y=1, log="y", type="p", pch=19, cex=0.4*scale,
+  plot.default( x=-10000, y=1, log="y", type="p", pch=19, cex=0.4,
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
@@ -274,16 +288,16 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     if(highlightSexChrs){
       ##plot autosomes
       data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=cex*scale, col=color);
-      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol, lwd=);
+      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=cex, col=color);
+      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75, col=outlineCol, lwd=);
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=cex*scale, col=color);
-      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
+      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=cex, col=color);
+      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75, col=outlineCol);
     } else {
-      points(data$vaf, data$depth, type="p", pch=16, cex=cex*scale, col=color);
+      points(data$vaf, data$depth, type="p", pch=16, cex=cex, col=color);
       ##add outline
-      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75*scale, col=outlineCol);
+      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75, col=outlineCol);
     }
 
   }
@@ -298,15 +312,15 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       ##plot cluster zero points in grey
       p = data[data$cluster == 0,]
       if(length(p[,1]) > 0){
-        addPoints(p, rgb(0,0,0,0.20), highlightSexChrs, cex=0.6)
+        addPoints(p, rgb(0,0,0,0.20), highlightSexChrs, cex=(cex.points*0.6))
       }
       ## then the clustered points
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
-        addPoints(p,cols[i],highlightSexChrs)
+        addPoints(p,cols[i],highlightSexChrs, cex=cex.points)
       }
     } else { #just use the normal color
-      addPoints(data,ptcolor,highlightSexChrs)
+      addPoints(data,ptcolor,highlightSexChrs, cex=cex.points)
     }
 
 
@@ -315,27 +329,27 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     ## add highlighted points selected for by user
     if(!(is.null(positionsToHighlight))){
       addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-      if(length(addpts[,1]) > 1){
+      if(length(addpts[,1]) > 0){
         if(highlightsHaveNames){
           for(i in 1:length(addpts$vaf)){
             if(addpts$name[i] != "") {
               # Only label the gene with a number if it has a number
-              text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5*scale)
+              text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
             } else {
               # Otherwise, just highlight it with a star
-              text(addpts$vaf[i],addpts$depth[i],labels="*",cex=scale)
+              text(addpts$vaf[i],addpts$depth[i],labels="*")
             }
           }
         } else {
-          addPoints(addpts, col="#555555FF", highlightSexChrs);
-          ##points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8*scale,col="#555555FF");
+          addPoints(addpts, col="#555555FF", highlightSexChrs, cex=cex.points);
+          ##points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8,col="#555555FF");
         }
       }
     }
   }
 
   ## define the axis
-  axis(side=2,las=1,tck=0,lwd=0,cex.axis=0.6*scale,hadj=0.5);
+  axis(side=2,las=1,tck=0,lwd=0,cex.axis=1.2/(scale*2), hadj=0.5/scale)
   for (i in 2:length(axTicks(2)-1)) {
     lines(c(-1,101),c(axTicks(2)[i],axTicks(2)[i]),col="#00000022");
   }
@@ -344,12 +358,12 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   rect(-1, 5, 101, axTicks(2)[length(axTicks(2))]*1.05, col = "#00000011",border=NA);
 
   ## add cn circle
-  points(x=c(97),y=c(maxDepth),type="p",pch=19,cex=3*scale,col=circlecolor);
-  text(c(97),y=c(maxDepth), labels=c(cn), cex=1*scale, col="#FFFFFFFF")
+  points(x=c(95), y=c(maxDepth*1.25), type="p", pch=19, cex=3/scale, col=circlecolor);
+  text(c(95),y=c(maxDepth*1.25), labels=c(cn), cex=1/scale, col="#FFFFFFFF")
 
 
   ## y axis label
-  mtext("Tumor Coverage",side=2,cex=0.6*scale,padj=-4.2/scale);
+  mtext("Tumor Coverage",side=2,cex=0.6,padj=-4.2);
 }
 
 
@@ -388,8 +402,8 @@ addHighlightLegend <- function(data, positionsToHighlight, scale){
     num = length(names)
 
     for(i in 1:num){
-      #text(xpos, ypos[i], paste(non.trivial.indices[nxt],". ",names[i],sep=""), cex=0.6*scale, pos=4)
-      text(xpos, ypos[i], paste(nxt,". ",names[i],sep=""), cex=0.6*scale, pos=4)
+      #text(xpos, ypos[i], paste(non.trivial.indices[nxt],". ",names[i],sep=""), cex=0.6, pos=4)
+      text(xpos, ypos[i], paste(nxt,". ",names[i],sep=""), cex=0.6, pos=4)
       nxt <- nxt+1
     }
     xpos=xpos+250;
