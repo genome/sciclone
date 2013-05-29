@@ -62,7 +62,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     if(is.null(densityData)){
       densityData = list(getDensity(vafs[[i]],copyNumberMargins))
     } else {
-      densityData= c(densityData, list(getDensity(vafs[[i]])))
+      densityData= c(densityData, list(getDensity(vafs[[i]],copyNumberMargins)))
     }
 
     ## This stop should probably be replaced so that plotting can take place
