@@ -53,15 +53,14 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
 
   ##-----------------------------------------
-  if(verbose){print("calculating kernel density")}
-
   densityData=NULL
   ##clean up data, get kernel density, estimate purity
   for(i in 1:dimensions){
     vafs[[i]] = cleanAndAddCN(vafs[[i]], copyNumberCalls[[i]], i, cnCallsAreLog2, regionsToExclude, useSexChrs, minimumDepth, copyNumberMargins)
+
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
-      densityData = list(getDensity(vafs[[i]]))
+      densityData = list(getDensity(vafs[[i]],copyNumberMargins))
     } else {
       densityData= c(densityData, list(getDensity(vafs[[i]])))
     }
@@ -477,7 +476,7 @@ getPurity <- function(peakPos){
 ##--------------------------------------------------------------------------
 ## calculate the 1d kernel density and peaks
 ##
-getDensity <- function(vafs){
+getDensity <- function(vafs,copyNumberMargins){
     ##data structure to hold info
     densities = vector("list",4)
     factors = vector("list",4)
@@ -486,19 +485,15 @@ getDensity <- function(vafs){
     maxDensity = 0
     maxDepth=0
 
-    ##default cutoffs are +/- 0.5x cn
-    cnLoThresh = c(0,1.5,2.5,3.5)
-    cnHiThresh = c(1.5,2.5,3.5,4.5)
-
     for(i in 1:4){
         ##grab only the variants in this copy number
-        v = vafs[vafs$cn > cnLoThresh[i] & vafs$cn < cnHiThresh[i],]
+        v = vafs[(vafs$cn > (i-copyNumberMargins)) & (vafs$cn < (i+copyNumberMargins)),]
         if(length(v[,1]) > 0){
 
             ##need two points for density calc
             if(length(v[,1]) > 1){
                 ##calculate the density
-                densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE, adj=0.8)
+                densities[[i]] = density(v$vaf, from=0, to=100, na.rm=TRUE, adj=0.85)
                 factors[[i]] = (length(v[,1])/length(vafs[,1]))*densities[[i]]$y
                 ##find the peaks
                 p = c(getPeaks(factors[[i]]),FALSE,FALSE)

@@ -2,7 +2,7 @@
 ## Create the one dimensional plot with kde and scatter
 ##
 sc.plot1d <- function(sco, outputFile,
-                   plotOnlyCN2=FALSE, showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
+                   cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
                    overlayIndividualModels=TRUE, showHistogram=FALSE, onlyLabelHighestPeak=FALSE,
                    minimumLabelledPeakHeight=0.001, showTitle=TRUE){
@@ -14,14 +14,10 @@ sc.plot1d <- function(sco, outputFile,
   sampleNames = sco@sampleNames
   dimensions = sco@dimensions
 
-  ##are we plotting everything or just CN2?
-  cnToPlot = c();
-  if(plotOnlyCN2){
-    cnToPlot = c(2)
-  } else {
-    cnToPlot = 1:4
+  if(max(cnToPlot) > 4 | min(cnToPlot) < 1){
+    print("sciClone supports plotting of copy numbers between 1 and 4 at this time")
   }
-
+  
   # If any of the vafs are named, assume we will be plotting them and
   # will need a legend for them.
   add.legend <- FALSE
@@ -42,7 +38,7 @@ sc.plot1d <- function(sco, outputFile,
         print("ERROR: named plot requires names in the third column of the positionsToHighlight data frame")
         return(0)
       }
-      plotOnlyCN2=TRUE
+      cnToPlot=c(2)
     } else {
       print("ERROR: highlightsHaveNames requires a 3-column dataframe of positions and names (chr, pos, name)");
       return(0);
@@ -256,7 +252,7 @@ sc.plot1d <- function(sco, outputFile,
           addHighlightLegend(v, positionsToHighlight,scale)
         } else {
           if(highlightsHaveNames){
-            print("WARNING: highlighted point naming is only supported when plotOnlyCN2 is TRUE")
+            print("WARNING: highlighted point naming is only supported when plotting only CN2 regions (plotToCn=c(2))")
           }
         }
       }
@@ -358,9 +354,10 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   rect(-1, 5, 101, axTicks(2)[length(axTicks(2))]*1.05, col = "#00000011",border=NA);
 
   ## add cn circle
-  points(x=c(95), y=c(maxDepth*1.25), type="p", pch=19, cex=3/scale, col=circlecolor);
-  text(c(95),y=c(maxDepth*1.25), labels=c(cn), cex=1/scale, col="#FFFFFFFF")
-
+  cnpos = axTicks(2)[length(axTicks(2))-1]
+  points(x=c(95), y=cnpos, type="p", pch=19, cex=3/scale, col=circlecolor);  
+  text(c(95),y=cnpos, labels=c(cn), cex=1/scale, col="#FFFFFFFF")
+  
 
   ## y axis label
   mtext("Tumor Coverage",side=2,cex=0.6,padj=-4.2);
