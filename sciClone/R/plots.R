@@ -426,8 +426,8 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
   clust = sco@clust
   marginalClust = sco@marginalClust
 
-  library(grid)
-  library(ggplot2)
+  suppressPackageStartupMessages(library(grid))
+  suppressPackageStartupMessages(library(ggplot2))
 
   plots.1d.list <- list()
   res.1d.max.densities <- list()
@@ -711,7 +711,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
             ys <- unlist(ys)
             labels <- unlist(labels)
             num.labels <- length(labels)
-            library(TeachingDemos)
+            suppressPackageStartupMessages(library(TeachingDemos))
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
@@ -778,7 +778,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   if(!is.null(vafs.merged$cluster)) {
     numClusters = max(vafs.merged$cluster, na.rm=T)
   }
-  library(plotrix)  # For plotCI among others.
+  suppressPackageStartupMessages(library(plotrix))  # For plotCI among others.
 
 
   ##create a 2d plot for each pairwise combination of samples
@@ -962,7 +962,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             ys <- unlist(ys)
             labels <- unlist(labels)
             num.labels <- length(labels)
-            library(TeachingDemos)
+            suppressPackageStartupMessages(library(TeachingDemos))
             # By using the min argument, ensure that the annotations
             # do not overlap the corresponding symbol.  NB:  we anticipate
             # this code will only be active for the interior points
@@ -988,7 +988,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 ## plot three samples in 3d, optionally create a GIF
 ##
 sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
-  library(rgl)
+  suppressPackageStartupMessages(library(rgl))
   ##set the size of the window
   open3d(windowRect = c(0,0, size, size) )
   if(length(samplesToPlot) != 3){
@@ -1030,7 +1030,7 @@ sc.plot3d <- function(sco, samplesToPlot, size=700, outputFile=NULL){
 ## Get a list of colors to use for the clusters (after 20 they start repeating)
 ##
 getClusterColors <- function(numClusters){
-  library(RColorBrewer)
+  suppressPackageStartupMessages(library(RColorBrewer))
   cols=brewer.pal(8,"Dark2")
   if(numClusters>8){
     cols = c(cols,brewer.pal(9,"Set1"))
