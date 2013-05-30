@@ -77,9 +77,8 @@ sc.plot1d <- function(sco, outputFile,
     spacing=1
     scale=1
   }
-    
   
-  pdf(file=outputFile, width=width, height=height, bg="white");
+  pdf(file=outputFile, width=width, height=height, bg="white");      
 
   numClusters = 0
   if(!is.null(clust)) {
@@ -762,8 +761,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list()){
-  pdf(outputFile, width=7.2, height=6, bg="white")
+sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE){
 
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
@@ -771,13 +769,25 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   dimensions = sco@dimensions
   clust = sco@clust
 
+
+  if(singlePage){
+    nplots = ncol(combn(c(1:dimensions),2))
+    nrow=round(sqrt(nplots))
+    ncol=ceiling(sqrt(nplots))
+    pdf(outputFile, width=7.2*nrow, height=6*ncol, bg="white")
+    par(mfrow=c(nrow,ncol))
+  } else {
+    pdf(outputFile, width=7.2, height=6, bg="white")
+  }
+
   numClusters = 0
   if(!is.null(vafs.merged$cluster)) {
     numClusters = max(vafs.merged$cluster, na.rm=T)
   }
   suppressPackageStartupMessages(library(plotrix))  # For plotCI among others.
 
-
+  
+  
   ##create a 2d plot for each pairwise combination of samples
   for(d1 in 1:(dimensions-1)){
     for(d2 in d1:dimensions){
