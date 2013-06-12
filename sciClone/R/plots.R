@@ -251,7 +251,7 @@ sc.plot1d <- function(sco, outputFile,
           addHighlightLegend(v, positionsToHighlight,scale)
         } else {
           if(highlightsHaveNames){
-            print("WARNING: highlighted point naming is only supported when plotting only CN2 regions (plotToCn=c(2))")
+            print("WARNING: highlighted point naming is only supported when plotting only CN2 regions (cnToPlot=c(2))")
           }
         }
       }

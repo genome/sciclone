@@ -6,7 +6,7 @@
 \description{
   Creates a pdf with one plot for each sample.
 }
-\usage{sc.plot1d(sco, outputFile, plotOnlyCN2=FALSE,
+\usage{sc.plot1d(sco, outputFile, cnToPlot=c(1,2,3,4),
                 showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                 positionsToHighlight=NULL, highlightsHaveNames=FALSE,
                 overlayClusters=TRUE, overlayIndividualModels=TRUE,
@@ -21,8 +21,9 @@
   \item{outputFile}{
     path/name of pdf file of plots to create
   }
-  \item{plotOnlyCN2}{
-    create a shortened plot with only the density plots and CN2 regions
+  \item{cnToPlot}{
+    create a shortened plot with only the density plots and indicated cn
+    regions (a subset of c(1,2,3,4))
   }
   \item{showCopyNumberScatterPlots}{
     show the scatter plots of depth and VAF
