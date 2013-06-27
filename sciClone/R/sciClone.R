@@ -6,7 +6,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doPurityScaling=FALSE,doClusteringAlongMargins=TRUE){
+                     doPurityScaling=FALSE,doClusteringAlongMargins=TRUE,plotIntermediateResults=0){
 
   if(verbose){print("checking input data...")}
 
@@ -225,7 +225,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   if(doClustering){
     if(verbose){print("clustering...")}
     clust=clusterVafs(vafs.merged.cn2, vafs.matrix, vars.matrix, refs.matrix, maximumClusters, clusterMethod, clusterParams,
-      samples=length(purities), plotIntermediateResults=0, verbose=0)
+      samples=length(purities), plotIntermediateResults=plotIntermediateResults, verbose=0)
     if(is.null(clust[[1]])) {
       print("Warning: no clusters, returning NULL")
       return(NULL)

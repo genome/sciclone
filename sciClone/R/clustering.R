@@ -63,7 +63,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
 ##--------------------------------------------------------------------------
 ## Go from fuzzy probabilities to hard cluster assignments
 ##
-hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
+hardClusterAssignments <- function(numPoints,cluster.names,probabilities) {
     # Any point that has been removed from the data set will have a
     # probability of NA and will be given an assignment of 0,
     # indicating that it is an outlier.
@@ -77,10 +77,10 @@ hardClusterAssignments <- function(numPoints,numClusters,probabilities) {
         #if(numClusters > 2) {
         #  max.assignment <- (4/3)/numClusters
         #}
-        for(k in 1:numClusters) {
+        for(k in 1:length(cluster.names)) {
             if ( !is.na(probabilities[n,k]) & (probabilities[n,k] > max.assignment) ) {
                 max.assignment <- probabilities[n,k]
-                max.cluster <- k
+                max.cluster <- cluster.names[k]
             }
         }
         assignments[n] <- max.cluster
@@ -129,7 +129,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
     probs = bmm.results$r
     numPoints = length(probs[,1])
     numClusters = length(probs[1,])
-    clusters = hardClusterAssignments(numPoints,numClusters,probs);
+    clusters = hardClusterAssignments(numPoints,1:numClusters,probs);
 
     ## find confidence intervals around the means of the clusters
     intervals = bmm.narrowest.mean.interval.about.centers(bmm.results$mu, bmm.results$alpha, bmm.results$nu, bmm.results$beta, 0.68)
@@ -228,7 +228,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     probs = bmm.results$r
     numPoints = length(probs[,1])
     numClusters = length(probs[1,])
-    clusters = hardClusterAssignments(numPoints,numClusters,probs);
+    clusters = hardClusterAssignments(numPoints,1:numClusters,probs);
 
     ## find confidence intervals around the means of the clusters
     intervals = binomial.bmm.narrowest.mean.interval.about.centers(bmm.results$a, bmm.results$b, 0.68)
@@ -322,7 +322,7 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
     probs = bmm.results$r
     numPoints = length(probs[,1])
     numClusters = length(probs[1,])
-    clusters = hardClusterAssignments(numPoints,numClusters,probs);
+    clusters = hardClusterAssignments(numPoints,1:numClusters,probs);
 
     ## find confidence intervals around the means of the clusters
     intervals = gaussian.bmm.narrowest.mean.interval.about.centers(bmm.results$m, bmm.results$alpha, bmm.results$beta, bmm.results$nu, bmm.results$W, 0.68)
@@ -425,6 +425,11 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     N <- dim(X)[1]
     num.dimensions <- dim(X)[2]
 
+
+    # If we are plotting intermediate results, keep the cluster "names"/
+    # numbers the same so that the coloring stays the same across iterations
+    cluster.names <- 1:N.c
+    
     x.colnames <- colnames(X)
 
     outliers <- matrix(data=0, nrow=0, ncol=dim(X)[2])
@@ -437,15 +442,9 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     if(plotIntermediateResults > 0) {
 
       probs <- r
-      numPoints = length(probs[,1])
       numClusters = length(probs[1,])
-      clusters = hardClusterAssignments(numPoints,numClusters,probs);
-      vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
-      outputPrefix <- paste("tumor", total.iterations, sep="")
-      sampleNames <- c("Tumor", "Relapse")
-      positionsToHighlight <- NULL
-      highlightsHaveNames <- FALSE
-      overlayClusters <- TRUE
+      numPoints = length(probs[,1])
+      clusters = hardClusterAssignments(numPoints,cluster.names,probs);
 
       ellipse.width <- as.double(erf(1/sqrt(2)))
 
@@ -462,8 +461,36 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       std.dev.ub <- 100 * t(std.dev.res$ub)
       ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
 
-      #sc.plot2d(vafs.with.assignments, outputPrefix, sampleNames, dim(X)[2], ellipse.metadata=ellipse.metadata)
-      sc.plot2d(vafs.with.assignments, outputPrefix, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
+      means = SEM.res$centers
+
+      clust <- list(
+        cluster.assignments = clusters,
+        cluster.probabilities= probs,
+        cluster.means = means,
+        cluster.upper = means,
+        cluster.lower = means,
+        fit.x = NULL,
+        fit.y = NULL,
+        individual.fits.y = NULL)
+      #clust=reorderClust(clust)
+      
+      vafs.with.assignments = cbind(vafs.merged,cluster=clust$cluster.assignments)
+      vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=clust$cluster.probabilities)
+      
+      outputFile <- paste("iter.", total.iterations, ".pdf", sep="")
+      # Determine the names of the samples by inferring from col names.
+      sampleNames <- names(vafs.merged)
+      sampleNames <- sampleNames[grepl(pattern=".ref", sampleNames)]
+      for(s in 1:length(sampleNames)) {
+        # Strip off the ".ref"
+        sampleNames[s] <- substr(sampleNames[s], 1, nchar(sampleNames[s])-4)
+      }
+      positionsToHighlight <- NULL
+      highlightsHaveNames <- FALSE
+      overlayClusters <- TRUE
+
+      sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)
+      sc.plot2d(sco, outputFile, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
     }
 
     # Outer while loop: following convergence of inner loop, apply
@@ -499,18 +526,11 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         E.quadratic.v <- bmm.res$E.quadratic.v
 
         if(plotIntermediateResults > 0) {
+
           probs <- r
           numPoints = length(probs[,1])
           numClusters = length(probs[1,])
-          clusters = hardClusterAssignments(numPoints,numClusters,probs);
-          vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
-          #outputPrefix <- paste("tumor", total.iterations, sep="")
-          sampleNames <- c("Tumor", "Relapse")
-          positionsToHighlight <- NULL
-          highlightsHaveNames <- FALSE
-          overlayClusters <- TRUE
-
-          ellipse.width <- as.double(erf(1/sqrt(2)))
+          clusters = hardClusterAssignments(numPoints,cluster.names,probs);
 
           # Calculate standard error of the means
           SEM.res <- bmm.narrowest.mean.interval.about.centers(mu, alpha, nu, beta, ellipse.width)
@@ -523,16 +543,37 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           std.dev.centers <- 100 * t(std.dev.res$centers)
           std.dev.lb <- 100 * t(std.dev.res$lb)
           std.dev.ub <- 100 * t(std.dev.res$ub)
-
           ellipse.metadata <- list(SEMs.lb = SEMs.lb, SEMs.ub = SEMs.ub, std.dev.lb = std.dev.lb, std.dev.ub = std.dev.ub)
-          ##todo - fixme
-          ##sc.plot2d(vafs.with.assignments, "clusters.int.pdf", sampleNames, dim(X)[2], positionsToHighlight, highlightsHaveNames, overlayClusters, ellipse.metadata=ellipse.metadata)
 
+          means = SEM.res$centers
+
+          clust <- list(
+            cluster.assignments = clusters,
+            cluster.probabilities= probs,
+            cluster.means = means,
+            cluster.upper = means,
+            cluster.lower = means,
+            fit.x = NULL,
+            fit.y = NULL,
+            individual.fits.y = NULL)
+          #clust=reorderClust(clust)
+
+          #print(ellipse.metadata)
+          
+          vafs.with.assignments = cbind(vafs.merged,cluster=clust$cluster.assignments)
+          vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=clust$cluster.probabilities)
+          
+          #vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
+          #vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=probs)
+          outputFile <- paste("iter.", total.iterations, ".pdf", sep="")
+
+          sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)          
+          sc.plot2d(sco, outputFile, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
         }
 
-        if((bmm.res$retVal != 0) & (plotIntermediateResults > 0)) {
-          next
-        }
+        #if((bmm.res$retVal != 0) & (plotIntermediateResults > 0)) {
+        #  next
+        #}
 
 
         do.inner.iteration <- FALSE
@@ -540,6 +581,12 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         # Remove any small clusters
 
         apply.min.items.condition <- TRUE
+        # Just for diagnostic purposes, do not remove small clusters
+        # if we are plot intermediate iterations.  This will not
+        # effect results--there will just be a lot of empty clusters.
+        #if(plotIntermediateResults > 0) {
+        #  apply.min.items.condition <- FALSE
+        #}
         apply.uncertainty.self.overlap.condition <- FALSE
         apply.large.SEM.condition <- FALSE
         apply.overlapping.SEM.condition <- FALSE
@@ -550,14 +597,20 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         apply.uncertainty.self.overlap.condition <- TRUE
 
         apply.outlier.condition <- FALSE
-        apply.pvalue.outlier.condition <- TRUE                
+        apply.pvalue.outlier.condition <- TRUE
 
         indices.to.keep <- rep(TRUE, N.c)
         remove.data <- FALSE
 
         remove.data.from.small.clusters <- FALSE      
-        
-        clusters <- hardClusterAssignments(N,N.c,r)
+
+        # NB: This cluster naming is inconsistent with the above
+        # clustering naming/numbering (in hardClusterAssignments using
+        # cluster.names).  That's OK.  We understand that that these clusters
+        # from 1 to N.c are incides to an N.c length vector cluster.names
+        # given the non-mutable names of the clusters (i.e., that are not
+        # changed/rearranged when a cluster is removed).
+        clusters <- hardClusterAssignments(N,1:N.c,r)
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             threshold.pts <- max(3, ceiling(.005*N))          
@@ -940,6 +993,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
           numeric.indices <- (1:N.c)
 
+          cluster.names <- cluster.names[indices.to.keep]
+          
           E.pi <- E.pi[indices.to.keep]
           E.lnpi <- E.lnpi[indices.to.keep]
 
@@ -1111,7 +1166,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
     remove.data.from.small.clusters <- FALSE
     
-    clusters <- hardClusterAssignments(N,N.c,r)
+    clusters <- hardClusterAssignments(N,1:N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
@@ -1437,7 +1492,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
     remove.data.from.small.clusters <- FALSE      
     
-    clusters <- hardClusterAssignments(N,N.c,r)
+    clusters <- hardClusterAssignments(N,1:N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     

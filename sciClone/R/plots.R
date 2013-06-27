@@ -763,12 +763,9 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##
 sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE){
 
-  densityData = sco@densities
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
   dimensions = sco@dimensions
-  clust = sco@clust
-
 
   if(singlePage){
     nplots = ncol(combn(c(1:dimensions),2))
@@ -781,9 +778,20 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   }
 
   numClusters = 0
+  maxCluster = 0
+  non.empty.clusters <- c()
+  # NB: clusters no longer need be numbered contiguously
   if(!is.null(vafs.merged$cluster)) {
-    numClusters = max(vafs.merged$cluster, na.rm=T)
+    # Careful!  This doesn't work--0 is an outlier cluster.
+    #numClusters = length(unique(vafs.merged$cluster[!is.na(vafs.merged$cluster)]))
+    maxCluster = max(vafs.merged$cluster, na.rm=T)
+    # Note that by starting at 1, we exclude the outlier "cluster" 0.
+    for(i in 1:maxCluster){
+      if(!any(vafs.merged$cluster == i)) { next }
+      non.empty.clusters <- c(non.empty.clusters, i)
+    }
   }
+  numClusters = length(non.empty.clusters)
   suppressPackageStartupMessages(library(plotrix))  # For plotCI among others.
 
   
@@ -809,7 +817,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
       }
 
-      cols = getClusterColors(numClusters)
+      cols = getClusterColors(maxCluster)
       #create the plot
       plot(-100, -100, xlim=c(0,120), ylim=c(0,100), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
            xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
@@ -845,15 +853,15 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
         }
         
         for(i in 1:numClusters){
-          indices <- v.no.highlight$cluster==i
+          indices <- v.no.highlight$cluster==non.empty.clusters[i]
 
           if(overlayClusters){
             if(dim(v.no.highlight[indices,])[1] > 0) {
               if(overlayErrorBars == TRUE) {
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
-                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[i], pch=i)
+                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i)
               }
             }
           } else { ##no overlay of clusters
@@ -923,7 +931,9 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       }
       #plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
       if(!is.null(vafs.merged$cluster)) {
-        legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
+        # Only include in the legend any clusters that are not empty.
+        legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters)        
+        #legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
       }
 
       # Add annotation for gene names, if requested
