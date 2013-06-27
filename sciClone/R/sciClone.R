@@ -52,6 +52,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
 
+
   ##-----------------------------------------
   densityData=NULL
   ##clean up data, get kernel density, estimate purity
@@ -60,9 +61,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
     ##calculate the densities and peaks for variants of each copy number
     if(is.null(densityData)){
-      densityData = list(getDensity(vafs[[i]],copyNumberMargins))
+      densityData = list(getDensity(vafs[[i]], copyNumberMargins, minimumDepth))
     } else {
-      densityData= c(densityData, list(getDensity(vafs[[i]],copyNumberMargins)))
+      densityData= c(densityData, list(getDensity(vafs[[i]], copyNumberMargins, minimumDepth)))
     }
 
     ## This stop should probably be replaced so that plotting can take place
@@ -494,7 +495,7 @@ getPurity <- function(peakPos){
 ##--------------------------------------------------------------------------
 ## calculate the 1d kernel density and peaks
 ##
-getDensity <- function(vafs,copyNumberMargins){
+getDensity <- function(vafs, copyNumberMargins, minimumDepth){
     ##data structure to hold info
     densities = vector("list",4)
     factors = vector("list",4)
@@ -504,8 +505,8 @@ getDensity <- function(vafs,copyNumberMargins){
     maxDepth=0
 
     for(i in 1:4){
-        ##grab only the variants in this copy number
-        v = vafs[(vafs$cn > (i-copyNumberMargins)) & (vafs$cn < (i+copyNumberMargins)),]
+        ##grab only the variants in this copy number and with adequate depth
+        v = vafs[(vafs$cn > (i-copyNumberMargins)) & (vafs$cn < (i+copyNumberMargins)) & (vafs$depth > minimumDepth),]
         if(length(v[,1]) > 0){
 
             ##need two points for density calc

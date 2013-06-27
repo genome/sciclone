@@ -5,7 +5,7 @@ sc.plot1d <- function(sco, outputFile,
                    cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
                    overlayIndividualModels=TRUE, showHistogram=FALSE, onlyLabelHighestPeak=FALSE,
-                   minimumLabelledPeakHeight=0.001, showTitle=TRUE){
+                   minimumLabelledPeakHeight=0.001, showTitle=TRUE, biggerText=FALSE){
 
 
   densityData = sco@densities
@@ -17,7 +17,7 @@ sc.plot1d <- function(sco, outputFile,
   if(max(cnToPlot) > 4 | min(cnToPlot) < 1){
     print("sciClone supports plotting of copy numbers between 1 and 4 at this time")
   }
-  
+
   # If any of the vafs are named, assume we will be plotting them and
   # will need a legend for them.
   add.legend <- FALSE
@@ -62,11 +62,19 @@ sc.plot1d <- function(sco, outputFile,
     num.rows <- num.rows + 1
   }
 
+  textScale=1;
+  axisPosScale=1;
+  if(biggerText){
+    textScale=1.4
+    axisPosScale=0.9;
+  }
+
+
   # 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly
   # if we have fewer rows.
   #pdf(file=outputFile, width=3.3, height=7.5, bg="white");
   height <- 8.5 * (num.rows/5)
-  width <- 3.7
+ width <- 3.7
 
   spacing=1.0
   scale=1
@@ -78,8 +86,8 @@ sc.plot1d <- function(sco, outputFile,
     spacing=1
     scale=1
   }
-  
-  pdf(file=outputFile, width=width, height=height, bg="white");      
+
+  pdf(file=outputFile, width=width, height=height, bg="white");
 
   numClusters = 0
   if(!is.null(clust)) {
@@ -103,7 +111,6 @@ sc.plot1d <- function(sco, outputFile,
     maxDepth = densityData[[d]]$maxDepth
     maxDensity = densityData[[d]]$maxDensity
 
-
     ##draw the density plot
     scalingFactor = 1/maxDensity;
     plot.default(x=c(1:10),y=c(1:10),ylim=c(0,1.1), xlim=c(0,100), axes=FALSE,
@@ -111,7 +118,7 @@ sc.plot1d <- function(sco, outputFile,
 
     ##plot bg color
     rect(0, 0, 100, 1.1, col = "#00000011",border=NA);
-    axis(side=2,at=c(0,2),labels=c("", ""), las=1, cex.axis=0.6, hadj=0.6,
+    axis(side=2,at=c(0,2),labels=c("", ""), las=1, cex.axis=0.6*textScale, hadj=0.6*textScale,
          lwd=0.5, lwd.ticks=0.5, tck=-0.01);
 
 
@@ -198,27 +205,27 @@ sc.plot1d <- function(sco, outputFile,
     }
 
     ##legend
-    lcol=colors
+    lcol=colors[cnToPlot]
     lty = c(1,1,1,1)
     lwd = c(2,2,2,2)
     pchs = c(NA, NA, NA, NA)
     pt.bgs = lcol
     leg = c("1 Copy", "2 Copies", "3 Copies", "4 Copies")
-    if( (length(cnToPlot)== 1) ) {
+    leg = leg[cnToPlot];
+
+
+    if( (length(cnToPlot) == 1) & (cnToPlot[1] == 2)) {
       if(showHistogram == FALSE) {
-        lcol=colors[2]
         lty = c(1)
         lwd = c(2)
         pchs = c(NA)
         pt.bgs = lcol
-        leg = c("2 Copies")
       } else {
         lcol="black"
         lty = c(0)
         lwd = c(0)
         pchs = c(22)
         pt.bgs = "white"
-        leg = c("2 Copies")
       }
     }
     if(!(is.null(clust))){
@@ -237,12 +244,16 @@ sc.plot1d <- function(sco, outputFile,
         pchs = c(pchs, NA)
       }
     }
-    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=0.6/scale, y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
+    legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=((0.6/scale)*textScale), y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
 
+    print(scale)
+    print(((scale*3.5)-3.5)+1.4)
+    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=((0.6/scale)*textScale),
+         lwd=0.5, lwd.ticks=0.5, padj=(((scale*3.5)-3.5)+1.4)*(1/textScale), tck=-0.05);
 
-    axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6/scale, lwd=0.5, lwd.ticks=0.5,padj=((scale*3.5)-3.5)+1.4, tck=-0.05);
-    mtext("Variant Allele Frequency",adj=0.5,padj=-3.1,cex=0.6,side=3);
-    mtext("Density (a.u.)",side=2,cex=0.6,padj=-4.2);
+      mtext("Variant Allele Frequency",adj=0.5, padj=-3.1*(1/textScale), cex=0.6*(textScale*0.8), side=3);
+      mtext("Density (a.u.)",side=2,cex=0.6*(textScale*0.8),padj=-4.2*(axisPosScale));
+
 
 
     ##add a title to the plot
@@ -253,7 +264,7 @@ sc.plot1d <- function(sco, outputFile,
       } else {
         title=paste(sampleNames[d],"Clonality Plot",sep=" ");
       }
-      mtext(title, adj=0.5, padj=-5, cex=0.65, side=3);
+      mtext(title, adj=0.5, padj=-5*(1/textScale), cex=0.65*textScale, side=3);
     }
 
     ##-----------------------------------------------------
@@ -262,10 +273,11 @@ sc.plot1d <- function(sco, outputFile,
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
-        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale, labelOnPlot = (length(cnToPlot) >= 2))
-        axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6/scale,lwd=0.5,lwd.ticks=0.5,padj=(-scale*5)+5-1.4, tck=-0.05);
 
-
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=(length(cnToPlot) >= 2))
+        axis(side=1,at=c(0,20,40,60,80,100), labels=c(0,20,40,60,80,100), cex.axis=(0.6/scale)*textScale, lwd=0.5, lwd.ticks=0.5, padj=((-scale*5)+5-1.4)*(1/textScale), tck=-0.05);
+        
+        
         if(length(cnToPlot) < 2 & highlightsHaveNames){
           addHighlightLegend(v, positionsToHighlight,scale)
         } else {
@@ -285,10 +297,10 @@ sc.plot1d <- function(sco, outputFile,
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1, labelOnPlot=FALSE){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1, textScale=1, axisPosScale=1, labelOnPlot=FALSE){
 
   cex.points = 1/scale
-  
+
   ## define plot colors
   ptcolor = colors[cn]
   circlecolor = substr(colors[cn],1,7) #chop off the alpha value
@@ -384,7 +396,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
   }
 
   ## define the axis
-  axis(side=2,las=1,tck=0,lwd=0,cex.axis=1.2/(scale*2), hadj=0.5/scale)
+  axis(side=2,las=1,tck=0,lwd=0,cex.axis=1.2/(scale*2)*textScale, hadj=0.5/scale)
   for (i in 2:length(axTicks(2)-1)) {
     lines(c(-1,101),c(axTicks(2)[i],axTicks(2)[i]),col="#00000022");
   }
@@ -394,12 +406,12 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
 
   ## add cn circle
   cnpos = axTicks(2)[length(axTicks(2))-1]
-  points(x=c(95), y=cnpos, type="p", pch=19, cex=3/scale, col=circlecolor);  
+  points(x=c(95), y=cnpos, type="p", pch=19, cex=3/scale, col=circlecolor);
   text(c(95),y=cnpos, labels=c(cn), cex=1/scale, col="#FFFFFFFF")
-  
+
 
   ## y axis label
-  mtext("Tumor Coverage",side=2,cex=0.6,padj=-4.2);
+  mtext("Tumor Coverage", side=2, cex=0.6*(textScale*0.8), padj=-4.2*(axisPosScale));
 }
 
 
@@ -801,7 +813,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE){
+sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -812,7 +824,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
     nrow=round(sqrt(nplots))
     ncol=ceiling(sqrt(nplots))
     pdf(outputFile, width=7.2*nrow, height=6*ncol, bg="white")
-    par(mfrow=c(nrow,ncol))
+    par(mfrow=c(nrow,ncol), mar=c(5.1, 5.1, 4.1, 2.1))
   } else {
     pdf(outputFile, width=7.2, height=6, bg="white")
   }
@@ -834,8 +846,8 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
   numClusters = length(non.empty.clusters)
   suppressPackageStartupMessages(library(plotrix))  # For plotCI among others.
 
-  
-  
+
+
   ##create a 2d plot for each pairwise combination of samples
   for(d1 in 1:(dimensions-1)){
     for(d2 in d1:dimensions){
@@ -861,12 +873,13 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       #create the plot
       plot(-100, -100, xlim=c(0,120), ylim=c(0,100), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
            xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
-           bty="n", xaxt="n")
-      abline(v=seq(0,100,20),col="grey50", lty=3)
+           bty="n", xaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
 
-      segments(rep(-10,5),seq(0,100,20),rep(105,5),seq(0,100,20), lty=3, col="grey50")
-
-      axis(side=1,at=seq(0,100,20),labels=seq(0,100,20))
+      # vertical grid
+      abline(v=seq(0,100,20),col="grey50", lty=3, lwd=scale)
+      # horizontal grid
+      segments(rep(-10,5),seq(0,100,20),rep(105,5),seq(0,100,20), lty=3, lwd=scale, col="grey50")
+      axis(side=1,at=seq(0,100,20),labels=seq(0,100,20), cex.axis=scale)
 
 
       ## If we will be highlighting some points, exclude them from
@@ -889,9 +902,9 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       if(!is.null(vafs.merged$cluster)) {
         ## handle cluster 0 (outliers)
         if(length(v.outlier[,1]) > 0){
-          points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3)
+          points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3*scale)
         }
-        
+
         for(i in 1:numClusters){
           indices <- v.no.highlight$cluster==non.empty.clusters[i]
 
@@ -901,7 +914,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
-                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i)
+                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, cex=scale)
               }
             }
           } else { ##no overlay of clusters
@@ -910,7 +923,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
                 plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
               } else {
-                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14)
+                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, cex=scale)
               }
             }
           }
@@ -918,10 +931,10 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       } else {
         if(dim(v.no.highlight)[1] > 0) {
           if(overlayErrorBars == TRUE) {
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x", cex=scale)
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y", cex=scale)
           } else {
-            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14)
+            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, cex=scale)
           }
         }
       }
@@ -941,7 +954,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
             plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
           } else {
-            points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2)
+            points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2*scale)
           }
         }
 
@@ -972,7 +985,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       #plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
       if(!is.null(vafs.merged$cluster)) {
         # Only include in the legend any clusters that are not empty.
-        legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters)        
+        legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters, cex=scale)
         #legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
       }
 
