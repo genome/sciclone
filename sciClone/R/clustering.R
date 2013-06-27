@@ -25,12 +25,18 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
   ##check for suitable method
   if(method == "bmm"){
     if(!is.null(params)){
-      ##handle input params to clustering method - only supports one for now...
+      ##handle input params to clustering method - only supports two for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
+      overlap.threshold <- 0.8
+      apply.pvalue.outlier.condition <- TRUE      
       if(grepl("overlap.threshold",params)){
-        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
-        return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))
+        overlap.threshold = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
       }
+      if(grepl("no.pvalue.outlier.detection",params)){
+        cat("Disable pvalue outlier condition\n")
+        apply.pvalue.outlier.condition <- FALSE
+      }
+      return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition,initialClusters=maximumClusters))
     }
     return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
   } else if(method == "binomial.bmm"){
@@ -92,7 +98,7 @@ hardClusterAssignments <- function(numPoints,cluster.names,probabilities) {
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (beta mixture model)
 ##
-clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8) {
+clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.8,apply.pvalue.outlier.condition = TRUE) {
     suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
@@ -119,7 +125,8 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold)
+    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition)
+
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -419,7 +426,7 @@ calculate.self.overlap <- function(r) {
 ## ##
 bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, mu0, alpha0, nu0, beta0, c0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold=0.8){
+                                plotIntermediateResults = 0, overlap.threshold=0.8, apply.pvalue.outlier.condition = TRUE){
 
     total.iterations <- 0
     N <- dim(X)[1]
@@ -597,7 +604,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         apply.uncertainty.self.overlap.condition <- TRUE
 
         apply.outlier.condition <- FALSE
-        apply.pvalue.outlier.condition <- TRUE
+        #apply.pvalue.outlier.condition <- TRUE
 
         indices.to.keep <- rep(TRUE, N.c)
         remove.data <- FALSE
