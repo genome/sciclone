@@ -95,6 +95,37 @@ hardClusterAssignments <- function(numPoints,cluster.names,probabilities) {
 }
 
 
+## ----------------------------------------
+## Reorder the parameters to the Beta model based on the order specified
+## in the second argument (see reorderClusters)
+reorderBetaClust <- function(clust, ord) {
+
+  mu=list()
+  alpha=list()
+  nu=list()
+  beta=list()
+  pi=list()
+
+  for(i in 1:length(ord[,1])){
+    oldnum = ord[i,1]
+    mu[[i]] = clust$mu[,oldnum]
+    alpha[[i]] = clust$alpha[,oldnum]
+    nu[[i]] = clust$nu[,oldnum]
+    beta[[i]] = clust$beta[,oldnum]
+    pi[[i]] = clust$pi[oldnum]
+  }
+
+  for(i in 1:length(ord[,1])){
+    clust$mu[,i] = mu[[i]]
+    clust$alpha[,i] = alpha[[i]]
+    clust$nu[,i] = nu[[i]]
+    clust$beta[,i] = beta[[i]]
+    clust$pi[i] = pi[[i]]
+  }
+
+  return(clust)
+}
+
 ##--------------------------------------------------------------------------
 ## Do clustering with bmm (beta mixture model)
 ##
@@ -200,7 +231,39 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
         cluster.lower = lower,
         fit.x = x,
         fit.y = y,
-        individual.fits.y = yms))
+        individual.fits.y = yms,
+        mu = bmm.results$mu,
+        alpha = bmm.results$alpha,
+        nu = bmm.results$nu,
+        beta = bmm.results$beta,
+        pi = bmm.results$E.pi,
+        cluster.method = "bmm"))
+}
+
+## ----------------------------------------
+## Reorder the parameters to the Binomial model based on the order specified
+## in the second argument (see reorderClusters)
+reorderBinomialClust <- function(clust, ord) {
+
+  mu=list()
+  a=list()
+  b=list()
+  pi=list()
+
+  for(i in 1:length(ord[,1])){
+    oldnum = ord[i,1]
+    a[[i]] = clust$a[oldnum,]
+    b[[i]] = clust$b[oldnum,]
+    pi[[i]] = clust$pi[oldnum]
+  }
+
+  for(i in 1:length(ord[,1])){
+    clust$a[i,] = mu[[i]]
+    clust$b[i,] = alpha[[i]]
+    clust$pi[i] = pi[[i]]
+  }
+
+  return(clust)
 }
 
 ##--------------------------------------------------------------------------
@@ -293,9 +356,48 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
         cluster.lower = lower,
         fit.x = x,
         fit.y = y,
-        individual.fits.y = yms))
+        individual.fits.y = yms,
+        a = bmm.results$a,
+        b = bmm.results$b,
+        pi = bmm.results$E.pi,
+        cluster.method = "bmm.binomial"))
 }
 
+## ----------------------------------------
+## Reorder the parameters to the gaussian model based on the order specified
+## in the second argument (see reorderClusters)
+reorderGaussianClust <- function(clust, ord) {
+
+  m=list()
+  alpha=list()
+  beta=list()
+  nu=list()
+  W=list()
+  L=list()
+
+  for(i in 1:length(ord[,1])){
+    oldnum = ord[i,1]
+    m[[i]] = clust$m[oldnum,]
+    alpha[[i]] = clust$alpha[oldnum]
+    beta[[i]] = clust$beta[oldnum]
+    nu[[i]] = clust$nu[oldnum]
+    W[[i]] = clust$W[oldnum]
+    L[[i]] = clust$L[oldnum]
+    pi[[i]] = clust$pi[oldnum]
+  }
+
+  for(i in 1:length(ord[,1])){
+    clust$m[i,] = m[[i]]
+    clust$alpha[i] = alpha[[i]]
+    clust$beta[i] = beta[[i]]
+    clust$nu[i] = nu[[i]]
+    clust$W[i] = W[[i]]
+    clust$L[i] = L[[i]]
+    clust$pi[i] = pi[[i]]
+  }
+
+  return(clust)
+}
 
 ##--------------------------------------------------------------------------
 ## Do clustering with gaussian bmm (gaussian bayesian mixture model)
@@ -406,7 +508,15 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
         cluster.lower = lower,
         fit.x = x,
         fit.y = y,
-        individual.fits.y = yms))
+        individual.fits.y = yms,
+        m = bmm.results$m,
+        alpha = bmm.results$alpha,
+        beta = bmm.results$beta,
+        nu = bmm.results$nu,
+        W = bmm.results$W,
+        L = bmm.results$L,
+        pi = bmm.results$E.pi,
+        cluster.method = "bmm.gaussian"))
 }
 
 # Calculate self overlap as defined by White and Shalloway; Phys Rev E 2009
@@ -419,6 +529,38 @@ calculate.self.overlap <- function(r) {
     overlaps[k] <- sum(r[,k] * r[,k], na.rm=TRUE) / sum(ones * r[,k], na.rm=TRUE)
   }
   return(overlaps)
+}
+
+## -----------------------------------------------------
+## Calculate the pvalue of a vaf v being in cluster k
+bmm.calculate.pvalue <- function(vaf, k, mu, alpha, nu, beta, pi) {
+  num.samples <- 1000
+  num.dimensions <- dim(mu)[1]
+  proportions <- matrix(data=0, nrow=num.samples, ncol=num.dimensions)
+  for(m in 1:num.dimensions){
+    proportions[,m] <- sample.bmm.component.proportion(mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+  }
+
+  probabilities <- rep(1, num.samples)
+  for(n in 1:num.samples) {
+    for(m in 1:num.dimensions){
+      probabilities[n] <- probabilities[n] * bmm.component.posterior.predictive.density(proportions[n,m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+    }
+  }
+
+  vaf.prob <- 1
+  for(m in 1:num.dimensions){
+    vaf.prob <- vaf.prob * bmm.component.posterior.predictive.density(vaf[m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
+  }
+
+  pvalue <- (0+length((1:length(probabilities))[probabilities > vaf.prob])) / length(probabilities)
+  if(length((1:length(probabilities))[probabilities < vaf.prob]) == 0) {
+    # Don't return a zero pvalue.  It's just artifact of the (finite)
+    # sampling
+    pvalue <- 1 / length(probabilities)
+  }
+
+  return(pvalue)
 }
 
 ## ##--------------------------------------------------------------------------
@@ -573,6 +715,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           #vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
           #vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=probs)
           outputFile <- paste("iter.", total.iterations, ".pdf", sep="")
+
+          positionsToHighlight <- NULL
+          highlightsHaveNames <- FALSE
+          overlayClusters <- TRUE
 
           sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)          
           sc.plot2d(sco, outputFile, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
@@ -770,7 +916,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 }
 
                 
-                pvalue <- length((1:length(probabilities))[probabilities < i.prob]) / length(probabilities)
+                pvalue <- length((1:length(probabilities))[probabilities > i.prob]) / length(probabilities)
 
                 cat("Point (pvalue = ", pvalue, ") ", sep="")
                 for(n in 1:num.dimensions) {
@@ -779,7 +925,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 cat("\n")
 
                 
-                if(pvalue < pvalue.cutoff) {
+                if(pvalue > ( 1 - pvalue.cutoff )) {
                   removed.pt <- TRUE
                   do.inner.iteration <- TRUE
                   

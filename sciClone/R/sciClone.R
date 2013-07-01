@@ -293,6 +293,24 @@ getConnectivityMatrix <- function(sco){
   return(C)
 }
 
+## -----------------------------------------------------
+## Calculate the pvalue of a vaf v being in cluster k
+calculate.pvalue <- function(vaf, k, sco) {
+  cluster.method <- sco@clust$cluster.method
+  if(cluster.method == "bmm") {
+    mu <- sco@clust$mu
+    alpha <- sco@clust$alpha
+    nu <- sco@clust$nu
+    beta <- sco@clust$beta
+    pi <- sco@clust$pi
+    pvalue <- bmm.calculate.pvalue(vaf, k, mu, alpha, nu, beta, pi)
+  } else {
+    cat("calculate.pvalue not implemented for", cluster.method, "\n")
+    q(status = -1)
+  }
+  return(pvalue)
+}
+
 ##--------------------------------------------------------------------
 ## intersect the variants with CN calls to classify them
 ##
@@ -585,6 +603,17 @@ reorderClust <- function(clust){
     clust$cluster.lower[,i] = lower[[i]]
     clust$cluster.upper[,i] = upper[[i]]
     clust$individual.fits.y[[i]] = individual[[i]]
+  }
+
+  if(clust$cluster.method == "bmm") {
+    clust <- reorderBetaClust(clust, df)
+  } else if (clust$cluster.method == "gaussian.bmm") {
+    clust <- reorderGaussianClust(clust, df)
+  } else if (clust$cluster.method == "binomial.bmm") {
+    clust <- reorderBinomialClust(clust, df)
+  } else {
+    cat("Cluster reordering not implemented for method", clust$cluster.method, "\n")
+    q(status = -1)
   }
   return(clust)
 }

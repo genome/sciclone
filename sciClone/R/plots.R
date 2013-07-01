@@ -21,6 +21,7 @@ sc.plot1d <- function(sco, outputFile,
   # If any of the vafs are named, assume we will be plotting them and
   # will need a legend for them.
   add.legend <- FALSE
+  addpts <- NULL
   if(!is.null(positionsToHighlight)) {
     names(positionsToHighlight)=c("chr","st","name");
     addpts = merge(vafs.merged, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
@@ -176,6 +177,24 @@ sc.plot1d <- function(sco, outputFile,
                 type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width)
         }
       }
+      if(!is.null(positionsToHighlight)) {
+        addpts = merge(vafs, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+        for(i in 1:length(addpts$vaf)){
+          if(addpts$name[i] != "") {
+            # We won't evaluate the probability at this VAF--instead
+            # just look for the closest point at which we evaluated the
+            # density
+            vaf <- addpts$vaf[i]
+            nearest.indx <- which(unlist(lapply(clust$fit.x, function(x) abs(x-vaf))) == min(abs(clust$fit.x - vaf)))[1]
+            vaf.y <- clust$fit.y[d,nearest.indx]/maxFitDensity
+             
+            label <- as.character(addpts$name[i])
+            cex <- 1
+            text(x=vaf, y=vaf.y, label="*", cex=cex)
+            text(x=vaf, y=vaf.y + .1, label=label, cex=cex)
+          }
+        }
+      }
     }
 
     ##legend
@@ -243,7 +262,7 @@ sc.plot1d <- function(sco, outputFile,
     if(showCopyNumberScatterPlots) {
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
-        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale)
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale, labelOnPlot = (length(cnToPlot) >= 2))
         axis(side=1,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=0.6/scale,lwd=0.5,lwd.ticks=0.5,padj=(-scale*5)+5-1.4, tck=-0.05);
 
 
@@ -252,6 +271,7 @@ sc.plot1d <- function(sco, outputFile,
         } else {
           if(highlightsHaveNames){
             print("WARNING: highlighted point naming is only supported when plotting only CN2 regions (cnToPlot=c(2))")
+            print("Instead labeling directly on plot")
           }
         }
       }
@@ -265,7 +285,7 @@ sc.plot1d <- function(sco, outputFile,
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1, labelOnPlot=FALSE){
 
   cex.points = 1/scale
   
@@ -324,15 +344,35 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     ## add highlighted points selected for by user
     if(!(is.null(positionsToHighlight))){
       addpts = merge(data, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+      xs <- c()
+      ys <- c()
+      labels <- c()
       if(length(addpts[,1]) > 0){
         if(highlightsHaveNames){
-          for(i in 1:length(addpts$vaf)){
-            if(addpts$name[i] != "") {
-              # Only label the gene with a number if it has a number
-              text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
-            } else {
-              # Otherwise, just highlight it with a star
-              text(addpts$vaf[i],addpts$depth[i],labels="*")
+          if(labelOnPlot) {
+            xs <- addpts$vaf[addpts$name != ""]
+            ys <- addpts$depth[addpts$name != ""]
+            labels <- addpts$name[addpts$name != ""]
+            num.labels <- length(labels)
+            suppressPackageStartupMessages(library(TeachingDemos))
+            # By using the min argument, ensure that the annotations
+            # do not overlap the corresponding symbol.  NB:  we anticipate
+            # this code will only be active for the interior points
+            text(x=addpts$vaf,y=addpts$depth,label=rep("*", length(addpts$vaf)))
+            if(num.labels > 0){
+              xs <- spread.labs(xs, mindiff=4, min=xs)
+              ys <- spread.labs(ys+50, mindiff=4, min=ys)
+              text(x=xs,y=ys,label=labels)
+            }
+          } else {
+            for(i in 1:length(addpts$vaf)){
+              if(addpts$name[i] != "") {
+                # Only label the gene with a number if it has a number
+                text(addpts$vaf[i],addpts$depth[i],labels=i,cex=0.5)
+              } else {
+                # Otherwise, just highlight it with a star
+                text(addpts$vaf[i],addpts$depth[i],labels="*")
+              }
             }
           }
         } else {
