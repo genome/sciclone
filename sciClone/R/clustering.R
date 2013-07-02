@@ -553,8 +553,8 @@ bmm.calculate.pvalue <- function(vaf, k, mu, alpha, nu, beta, pi) {
     vaf.prob <- vaf.prob * bmm.component.posterior.predictive.density(vaf[m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
   }
 
-  pvalue <- (0+length((1:length(probabilities))[probabilities > vaf.prob])) / length(probabilities)
-  if(length((1:length(probabilities))[probabilities < vaf.prob]) == 0) {
+  pvalue <- (0+length((1:length(probabilities))[probabilities <= vaf.prob])) / length(probabilities)
+  if(length((1:length(probabilities))[probabilities <= vaf.prob]) == 0) {
     # Don't return a zero pvalue.  It's just artifact of the (finite)
     # sampling
     pvalue <- 1 / length(probabilities)
@@ -916,7 +916,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 }
 
                 
-                pvalue <- length((1:length(probabilities))[probabilities > i.prob]) / length(probabilities)
+                pvalue <- length((1:length(probabilities))[probabilities <= i.prob]) / length(probabilities)
 
                 cat("Point (pvalue = ", pvalue, ") ", sep="")
                 for(n in 1:num.dimensions) {
@@ -925,7 +925,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 cat("\n")
 
                 
-                if(pvalue > ( 1 - pvalue.cutoff )) {
+                if(pvalue < pvalue.cutoff ) {
                   removed.pt <- TRUE
                   do.inner.iteration <- TRUE
                   
