@@ -5,7 +5,7 @@ sc.plot1d <- function(sco, outputFile,
                    cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
                    overlayIndividualModels=TRUE, showHistogram=FALSE, onlyLabelHighestPeak=FALSE,
-                   minimumLabelledPeakHeight=0.001, showTitle=TRUE, biggerText=FALSE){
+                   minimumLabelledPeakHeight=0.001, showTitle=TRUE, biggerText=FALSE, highlightsOnHistogram=FALSE){
 
 
   densityData = sco@densities
@@ -184,21 +184,23 @@ sc.plot1d <- function(sco, outputFile,
                 type="l",col="grey50",lty=individual.model.style, lwd=individual.model.width)
         }
       }
-      if(!is.null(positionsToHighlight)) {
-        addpts = merge(vafs, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-        for(i in 1:length(addpts$vaf)){
-          if(addpts$name[i] != "") {
-            # We won't evaluate the probability at this VAF--instead
-            # just look for the closest point at which we evaluated the
-            # density
-            vaf <- addpts$vaf[i]
-            nearest.indx <- which(unlist(lapply(clust$fit.x, function(x) abs(x-vaf))) == min(abs(clust$fit.x - vaf)))[1]
-            vaf.y <- clust$fit.y[d,nearest.indx]/maxFitDensity
-             
-            label <- as.character(addpts$name[i])
-            cex <- 1
-            text(x=vaf, y=vaf.y, label="*", cex=cex)
-            text(x=vaf, y=vaf.y + .1, label=label, cex=cex)
+      if(highlightsOnHistogram){
+        if(!is.null(positionsToHighlight)) {
+          addpts = merge(vafs, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+          for(i in 1:length(addpts$vaf)){
+            if(addpts$name[i] != "") {
+              ## We won't evaluate the probability at this VAF--instead
+              ## just look for the closest point at which we evaluated the
+              ## density
+              vaf <- addpts$vaf[i]
+              nearest.indx <- which(unlist(lapply(clust$fit.x, function(x) abs(x-vaf))) == min(abs(clust$fit.x - vaf)))[1]
+              vaf.y <- clust$fit.y[d,nearest.indx]/maxFitDensity
+              
+              label <- as.character(addpts$name[i])
+              cex <- 1
+              text(x=vaf, y=vaf.y, label="*", cex=cex)
+              text(x=vaf, y=vaf.y + .1, label=label, cex=cex)
+            }
           }
         }
       }
@@ -274,7 +276,7 @@ sc.plot1d <- function(sco, outputFile,
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
 
-        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=(length(cnToPlot) >= 2))
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=FALSE)
         axis(side=1,at=c(0,20,40,60,80,100), labels=c(0,20,40,60,80,100), cex.axis=(0.6/scale)*textScale, lwd=0.5, lwd.ticks=0.5, padj=((-scale*5)+5-1.4)*(1/textScale), tck=-0.05);
         
         
