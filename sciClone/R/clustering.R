@@ -28,7 +28,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       ##handle input params to clustering method - only supports two for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
       overlap.threshold <- 0.8
-      apply.pvalue.outlier.condition <- TRUE      
+      apply.pvalue.outlier.condition <- TRUE
       if(grepl("overlap.threshold",params)){
         overlap.threshold = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
       }
@@ -245,7 +245,6 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
 ## in the second argument (see reorderClusters)
 reorderBinomialClust <- function(clust, ord) {
 
-  mu=list()
   a=list()
   b=list()
   pi=list()
@@ -258,8 +257,8 @@ reorderBinomialClust <- function(clust, ord) {
   }
 
   for(i in 1:length(ord[,1])){
-    clust$a[i,] = mu[[i]]
-    clust$b[i,] = alpha[[i]]
+    clust$a[i,] = a[[i]]
+    clust$b[i,] = b[[i]]
     clust$pi[i] = pi[[i]]
   }
 
@@ -360,7 +359,7 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
         a = bmm.results$a,
         b = bmm.results$b,
         pi = bmm.results$E.pi,
-        cluster.method = "bmm.binomial"))
+        cluster.method = "binomial.bmm"))
 }
 
 ## ----------------------------------------
@@ -374,6 +373,7 @@ reorderGaussianClust <- function(clust, ord) {
   nu=list()
   W=list()
   L=list()
+  pi=list()
 
   for(i in 1:length(ord[,1])){
     oldnum = ord[i,1]
@@ -516,7 +516,7 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
         W = bmm.results$W,
         L = bmm.results$L,
         pi = bmm.results$E.pi,
-        cluster.method = "bmm.gaussian"))
+        cluster.method = "gaussian.bmm"))
 }
 
 # Calculate self overlap as defined by White and Shalloway; Phys Rev E 2009
