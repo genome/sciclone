@@ -528,7 +528,7 @@ plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlig
     num.breaks <- ceiling(100/bin.width) + 1
     breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
 
-    g <- g + geom_histogram(data = frequencies, mapping=aes(x, y=..ncount..*100), fill="white", colour="black", breaks=breaks)
+    g <- g + geom_histogram(data = frequencies, mapping=aes(x, y=..ncount..*100), fill="white", colour=gray(0.4), breaks=breaks)
 
     # Need to "print" the graph in order to see its maximum y value
     # NB:  this is redundant at this point, given that I scale the

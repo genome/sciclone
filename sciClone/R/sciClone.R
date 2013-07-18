@@ -211,7 +211,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       if(verbose){print(paste("finished 1d clustering", sampleNames[i], "..."))}
       numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
       print(paste("found",numClusters,"clusters using", clusterMethod, "in dimension",sampleNames[i]))
-
+      cat("Centers:\n")
+      print(marginalClust[[i]]$cluster.means)
+      
       vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
       vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
         by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
