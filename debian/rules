@@ -1,3 +1,4 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
+debRreposname := tgi
 include /usr/share/R/debian/r-cran.mk
