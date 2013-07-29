@@ -234,10 +234,12 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       return(NULL)
     }
     if(verbose){print("finished clustering full-dimensional data...");}
+
+    ##reorder the clusters to the largest vaf is first
+    clust=reorderClust(clust)
+
   }
 
-  #reorder the clusters to the largest vaf is first
-  clust=reorderClust(clust)
 
   numClusters=0
   if(!(is.null(clust[[1]]))){
