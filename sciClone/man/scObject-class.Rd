@@ -41,6 +41,9 @@ Objects can be created by calls of the form \code{new("scObject")}.
     \item{\code{ellipse.metadata}:}{Object of class \code{"list"}
       metadata related to confidence metric plotting
     }
+    \item{\code{purities}:}{Object of class \code{"numeric"}
+      list of estimated purities for each sample
+    }
   }
 }
 \section{Methods}{

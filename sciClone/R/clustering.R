@@ -22,6 +22,7 @@
 ##   individual.fits.y = a list of length number_of_clusters, holding the individual fits for each of the models, each represented by an M x P matrix (as for fit.y)
 
 clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClusters, method="bmm", params=NULL, samples=1, plotIntermediateResults = 0, verbose=0){
+
   ##check for suitable method
   if(method == "bmm"){
     if(!is.null(params)){
@@ -39,6 +40,8 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition,initialClusters=maximumClusters))
     }
     return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
+
+
   } else if(method == "binomial.bmm"){
     if(!is.null(params)){
       ##handle input params to clustering method - only supports one for now...
@@ -49,6 +52,8 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       }
     }
     return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters))
+
+
   } else if(method == "gaussian.bmm"){
     if(!is.null(params)){
       ##handle input params to clustering method - only supports one for now...
@@ -218,7 +223,7 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
         #}
         #y[dim,] = y[dim,]/max(y[dim,])
     }
-    
+
     ##scale xvals between 1 and 100
     x = x*100
 
@@ -574,13 +579,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     N <- dim(X)[1]
     num.dimensions <- dim(X)[2]
 
-    overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)    
+    overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
 
 
     # If we are plotting intermediate results, keep the cluster "names"/
     # numbers the same so that the coloring stays the same across iterations
     cluster.names <- 1:N.c
-    
+
     x.colnames <- colnames(X)
 
     outliers <- matrix(data=0, nrow=0, ncol=dim(X)[2])
@@ -588,7 +593,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
     E.pi.prev <- rep(0, N.c)
     E.pi.prev <- E.pi
-    
+
     width <- as.double(erf(1.5/sqrt(2)))
     # width <- as.double(erf(1/sqrt(2)))
     if(plotIntermediateResults > 0) {
@@ -625,10 +630,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         fit.y = NULL,
         individual.fits.y = NULL)
       #clust=reorderClust(clust)
-      
+
       vafs.with.assignments = cbind(vafs.merged,cluster=clust$cluster.assignments)
       vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=clust$cluster.probabilities)
-      
+
       outputFile <- paste("iter.", total.iterations, ".pdf", sep="")
       # Determine the names of the samples by inferring from col names.
       sampleNames <- names(vafs.merged)
@@ -711,10 +716,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           #clust=reorderClust(clust)
 
           #print(ellipse.metadata)
-          
+
           vafs.with.assignments = cbind(vafs.merged,cluster=clust$cluster.assignments)
           vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=clust$cluster.probabilities)
-          
+
           #vafs.with.assignments = cbind(vafs.merged,cluster=clusters)
           #vafs.with.assignments = cbind(vafs.with.assignments,cluster.prob=probs)
           outputFile <- paste("iter.", total.iterations, ".pdf", sep="")
@@ -723,7 +728,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           highlightsHaveNames <- FALSE
           overlayClusters <- TRUE
 
-          sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)          
+          sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)
           sc.plot2d(sco, outputFile, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
         }
 
@@ -758,7 +763,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         indices.to.keep <- rep(TRUE, N.c)
         remove.data <- FALSE
 
-        remove.data.from.small.clusters <- FALSE      
+        remove.data.from.small.clusters <- FALSE
 
         # NB: This cluster naming is inconsistent with the above
         # clustering naming/numbering (in hardClusterAssignments using
@@ -769,7 +774,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         clusters <- hardClusterAssignments(N,1:N.c,r)
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-            threshold.pts <- max(3, ceiling(.005*N))          
+            threshold.pts <- max(3, ceiling(.005*N))
 
             num.items.per.cluster <- rep(0, N.c)
             for(n in 1:N) {
@@ -782,12 +787,14 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
               expected.means <- ubar / ( ubar + vbar )
               for(k in dropped.clusters) {
                 indices.to.keep[k] <- FALSE
-                cat("Dropped cluster", k, "with too few variants (", num.items.per.cluster[k], ") center: ")
-                for(n in 1:length(expected.means[,k])) {
-                  cat(expected.means[n,k])
-                  if(length(expected.means[,k]) > 1) { cat(", ") }
+                if(verbose){
+                  cat("Dropped cluster", k, "with too few variants (", num.items.per.cluster[k], ") center: ")
+                  for(n in 1:length(expected.means[,k])) {
+                    cat(expected.means[n,k])
+                    if(length(expected.means[,k]) > 1) { cat(", ") }
+                  }
+                  cat("\n")
                 }
-                cat("\n")
                 break
               }
             }
@@ -799,13 +806,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 overlaps <- calculate.self.overlap(r)
                 # If any of the clusters to be removed have high self-overlap
                 # (i.e., have items highly assigned to them) ...
-                if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+                if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {
                   # Drop the items as well as the clusters ...
                   remove.data <- TRUE
                   # But drop items (and clusters) for small clusters with highly
                   # assigned items.  We can drop other small clusters (with
                   # weakly assigned) later if they remain small.
-                  indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )                
+                  indices.to.keep <- indices.to.keep | ( is.na(overlaps) | ( overlaps < 0.99 ) )
                 }
               }
             }
@@ -824,9 +831,11 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           removed.pt <- FALSE
           for(k in 1:N.c) {
             # Get all points belonging to cluster k
-            cat("Cluster", k,"\n")
-            print(ellipse.lb[k,])
-            print(ellipse.ub[k,])                  
+            if(verbose){
+              cat("Cluster", k,"\n")
+              print(ellipse.lb[k,])
+              print(ellipse.ub[k,])
+            }
             indices <- (1:N)[clusters==k]
             remove.i <- TRUE
             #remove.i <- FALSE
@@ -843,13 +852,15 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 # This code requires only one dimension to be within
                 # the limits (to avoid being an outlier)
                 if((X[i,m] < lower) | (X[i,m] > upper)) {
-                  cat("Point ")
-                  for(n in 1:num.dimensions) {
-                    cat(X[i,n], " ")
+                  if(verbose){
+                    cat("Point ")
+                    for(n in 1:num.dimensions) {
+                      cat(X[i,n], " ")
+                    }
+                    cat("is outside of range.\n")
+                    print(ellipse.lb[k,])
+                    print(ellipse.ub[k,])
                   }
-                  cat("is outside of range.\n")
-                  print(ellipse.lb[k,])
-                  print(ellipse.ub[k,])
                   removed.pt <- TRUE
                   do.inner.iteration <- TRUE
 
@@ -863,14 +874,16 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 removed.pt <- TRUE
                 do.inner.iteration <- TRUE
 
-                cat("Point ")
-                for(n in 1:num.dimensions) {
-                  cat(X[i,n], " ")
+                if(verbose){
+                  cat("Point ")
+                  for(n in 1:num.dimensions) {
+                    cat(X[i,n], " ")
+                  }
+                  cat("is outside of range.\n")                  
+                  print(ellipse.lb[k,])
+                  print(ellipse.ub[k,])
                 }
-                cat("is outside of range.\n")
-                print(ellipse.lb[k,])
-                print(ellipse.ub[k,])
-                
+
                 outliers <- rbind(outliers, X[i,,drop=F])
                 # To remove data from the data set, set its entries to NA
                 X[i,] <- NA
@@ -881,7 +894,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             next
           }
         }
-        
+
         if(all(indices.to.keep==TRUE) & (apply.pvalue.outlier.condition == TRUE)) {
           # Remove any points with a p-value < 10^-2.  For efficiency,
           # only do the detailed computation for those points having
@@ -899,7 +912,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           for(k in 1:N.c) {
             # Get all points belonging to cluster k
             scrutinize.i <- TRUE
-            indices <- (1:N)[clusters==k]            
+            indices <- (1:N)[clusters==k]
             for(i in indices) {
               for(m in 1:num.dimensions) {
                 lower <- ellipse.lb[k,m]
@@ -932,26 +945,27 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                   i.prob <- i.prob * bmm.component.posterior.predictive.density(X[i,m], mu[m,k], alpha[m,k], nu[m,k], beta[m,k], num.samples)
                 }
 
-                
+
                 pvalue <- length((1:length(probabilities))[probabilities <= i.prob]) / length(probabilities)
 
-                cat("Point (pvalue = ", pvalue, ") ", sep="")
-                for(n in 1:num.dimensions) {
-                  cat(X[i,n], " ")
-                }
-                cat("\n")
-
-                
-                if(pvalue < pvalue.cutoff ) {
-                  removed.pt <- TRUE
-                  do.inner.iteration <- TRUE
-                  
-                  cat("Point ")
+                if(verbose){
+                  cat("Point (pvalue = ", pvalue, ") ", sep="")
                   for(n in 1:num.dimensions) {
                     cat(X[i,n], " ")
                   }
-                  cat(" has small pvalue = ", pvalue, "\n")
-                
+                  cat("\n")
+                }
+
+                if(pvalue < pvalue.cutoff ) {
+                  removed.pt <- TRUE
+                  do.inner.iteration <- TRUE
+                  if(verbose){
+                    cat("Point ")
+                    for(n in 1:num.dimensions) {
+                      cat(X[i,n], " ")
+                    }
+                    cat(" has small pvalue = ", pvalue, "\n")
+                  }
                   outliers <- rbind(outliers, X[i,,drop=F])
                   # To remove data from the data set, set its entries to NA
                   X[i,] <- NA
@@ -963,7 +977,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             next
           }
         }
-        
+
         if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
             # Just drop min overlap
@@ -976,14 +990,18 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                     if(is.nan(overlaps[k])) { next }
                     if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                         indices.to.keep[k] <- FALSE
-                        cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
-                        expected.means <- ubar / ( ubar + vbar )
-                        cat(" center: ")
-                        for(n in 1:length(expected.means[,k])) {
-                          cat(expected.means[n,k])
-                          if(length(expected.means[,k]) > 1) { cat(", ") }
+                        if(verbose){
+                          cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
                         }
-                        cat("\n")
+                        expected.means <- ubar / ( ubar + vbar )
+                        if(verbose){
+                          cat(" center: ")
+                          for(n in 1:length(expected.means[,k])) {
+                            cat(expected.means[n,k])
+                            if(length(expected.means[,k]) > 1) { cat(", ") }
+                          }
+                          cat("\n")
+                        }
                         break
                     }
                 }
@@ -1160,7 +1178,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 }
             }
             verbose <- save.verbose
-            
+
         } # End apply.overlapping.std.dev.condition
 
 
@@ -1171,12 +1189,12 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           numeric.indices <- (1:N.c)
 
           cluster.names <- cluster.names[indices.to.keep]
-          
+
           E.pi <- E.pi[indices.to.keep]
           E.lnpi <- E.lnpi[indices.to.keep]
 
           N.c <- length(E.pi)
-          
+
           if (remove.data == TRUE) {
             cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
             new.outliers <- matrix(X[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
@@ -1205,11 +1223,11 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
               r[n,] <- rep(NA, N.c)
               next
             }
-            
+
             row.sum <- log(sum(exp(ln.rho[n,] - max(ln.rho[n,])))) + max(ln.rho[n,])
             for(k in 1:N.c) { r[n,k] = exp(ln.rho[n,k] - row.sum) }
           }
-          
+
           mu <- matrix(mu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
           nu <- matrix(nu[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
           mu0 <- matrix(mu0[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
@@ -1221,13 +1239,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           ubar <- matrix(ubar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
           vbar <- matrix(vbar[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
           E.pi.prev <- E.pi
-          
+
           E.lnpi <- E.lnpi[indices.to.keep]
           E.lnu <- E.lnu[indices.to.keep]
           E.lnv <- E.lnv[indices.to.keep]
           E.quadratic.u <- matrix(E.quadratic.u[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
           E.quadratic.v <- matrix(E.quadratic.v[,indices.to.keep], nrow=num.dimensions, ncol=N.c)
-          
+
         }
         if(do.inner.iteration == FALSE) { break }
 
@@ -1289,8 +1307,8 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
   num.dimensions <- dim(successes)[2]
 
   #overlap.threshold = overlap.threshold.1d^(1/num.dimensions)
-  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)    
-  
+  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
+
   N <- dim(successes)[1]
 
   successes.colnames <- colnames(successes)
@@ -1344,12 +1362,12 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     remove.data <- FALSE
 
     remove.data.from.small.clusters <- FALSE
-    
+
     clusters <- hardClusterAssignments(N,1:N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
-      threshold.pts <- max(3, ceiling(.005*N))          
+      threshold.pts <- max(3, ceiling(.005*N))
 
       num.items.per.cluster <- rep(0, N.c)
       for(n in 1:N) {
@@ -1365,7 +1383,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           overlaps <- calculate.self.overlap(r)
           # If any of the clusters to be removed have high self-overlap
           # (i.e., have items highly assigned to them) ...
-          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {
             # Drop the items as well as the clusters ...
             remove.data <- TRUE
             # But drop items (and clusters) for small clusters with highly
@@ -1375,13 +1393,13 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           }
         }
       }
-      
+
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
     if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
-      # Just drop min overlap      
+      # Just drop min overlap
       overlaps <- calculate.self.overlap(r)
 
       if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
@@ -1391,8 +1409,10 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
               if(is.nan(overlaps[k])) { next }
               if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                   indices.to.keep[k] <- FALSE
-                  cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
-                  cat("\n")
+                  if(verbose){
+                    cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
+                    cat("\n")
+                  }
                   break
               }
           }
@@ -1547,7 +1567,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           }
         }
       }
-      verbose <- save.verbose      
+      verbose <- save.verbose
     } # End apply.overlapping.std.dev.condition
 
 
@@ -1616,7 +1636,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
   num.dimensions <- dim(successes)[2]
 
   #overlap.threshold = overlap.threshold.1d^(1/num.dimensions)
-  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)      
+  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
 
   N <- dim(successes)[1]
 
@@ -1672,12 +1692,12 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # that we remove
     remove.data <- FALSE
 
-    remove.data.from.small.clusters <- FALSE      
-    
+    remove.data.from.small.clusters <- FALSE
+
     clusters <- hardClusterAssignments(N,1:N.c,r)
 
     indices.to.keep <- rep(TRUE, N.c)
-    
+
     if((apply.min.items.condition == TRUE) & (N.c > 1)) {
       threshold.pts <- max(3, ceiling(.005*N))
 
@@ -1695,7 +1715,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           overlaps <- calculate.self.overlap(r)
           # If any of the clusters to be removed have high self-overlap
           # (i.e., have items highly assigned to them) ...
-          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {        
+          if(any(!is.na(overlaps[!indices.to.keep]) & (overlaps[!indices.to.keep] > 0.99))) {
             # Drop the items as well as the clusters ...
             remove.data <- TRUE
             # But drop items (and clusters) for small clusters with highly
@@ -1705,13 +1725,13 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
           }
         }
       }
-      
+
       # indices.to.keep <- E.pi > pi.threshold
     } # End apply.min.items.condition
 
     if(all(indices.to.keep==TRUE) & (apply.uncertainty.self.overlap.condition == TRUE) & (N.c > 1)) {
 
-      # Just drop min overlap      
+      # Just drop min overlap
       overlaps <- calculate.self.overlap(r)
 
       if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
@@ -1721,13 +1741,15 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
               if(is.nan(overlaps[k])) { next }
               if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                   indices.to.keep[k] <- FALSE
-                  cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
-                  cat("\n")
+                  if(verbose){
+                    cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
+                    cat("\n")
+                  }
                   break
               }
           }
       }
-      
+
       if(verbose){
         for(k in 1:N.c) {
           cat(sprintf("Cluster %d pi = %.3f self-overlap = %.3f\n", k, E.pi[k], overlaps[k]))

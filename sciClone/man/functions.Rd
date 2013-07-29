@@ -7,7 +7,6 @@
 \alias{drawScatterPlot}
 \alias{addPoints}
 \alias{addHighlightLegend}
-\alias{plot2dWithMargins}
 \alias{getClusterColors}
 \alias{getOneSampleVafs}
 \alias{addCnToVafs}
@@ -16,9 +15,21 @@
 \alias{getPurity}
 \alias{getDensity}
 \alias{getPeaks}
-
+\alias{reorderBetaClust}
+\alias{reorderBinomialClust}
+\alias{clusterWithBinomialBmm}
+\alias{reorderGaussianClust}
+\alias{clusterWithGaussianBmm}
+\alias{calculate.self.overlap}
+\alias{bmm.calculate.pvalue}
+\alias{binomial.bmm.filter.clusters}
+\alias{gaussian.bmm.filter.clusters}
+\alias{compute.binomial.error.bars}
+\alias{calculate.pvalue}
+\alias{getConnectivityMatrix}
+\alias{reorderClust}
 \title{
-  cloneCaller Functions
+  sciClone functions
 }
 \description{
   miscellaneous internal functions used by the sciClone package

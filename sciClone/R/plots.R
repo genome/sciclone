@@ -4,8 +4,8 @@
 sc.plot1d <- function(sco, outputFile,
                    cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
-                   overlayIndividualModels=TRUE, showHistogram=FALSE, onlyLabelHighestPeak=FALSE,
-                   minimumLabelledPeakHeight=0.001, showTitle=TRUE, biggerText=FALSE, highlightsOnHistogram=FALSE){
+                   overlayIndividualModels=TRUE, showHistogram=FALSE,
+                   showTitle=TRUE, biggerText=FALSE, highlightsOnHistogram=FALSE){
 
 
   densityData = sco@densities
@@ -17,6 +17,11 @@ sc.plot1d <- function(sco, outputFile,
   if(max(cnToPlot) > 4 | min(cnToPlot) < 1){
     print("sciClone supports plotting of copy numbers between 1 and 4 at this time")
   }
+
+  #leaving this peak-labeling code in for now, but turn it off
+  #until it's improved 
+  minimumLabelledPeakHeight=999
+  onlyLabelHighestPeak=TRUE
 
   # If any of the vafs are named, assume we will be plotting them and
   # will need a legend for them.
@@ -248,8 +253,6 @@ sc.plot1d <- function(sco, outputFile,
     }
     legend(x="topright", lwd=lwd, lty=lty, legend=leg, col=lcol, bty="n", cex=((0.6/scale)*textScale), y.intersp=1.25, pch=pchs, pt.bg = pt.bgs);
 
-    print(scale)
-    print(((scale*3.5)-3.5)+1.4)
     axis(side=3,at=c(0,20,40,60,80,100),labels=c(0,20,40,60,80,100),cex.axis=((0.6/scale)*textScale),
          lwd=0.5, lwd.ticks=0.5, padj=(((scale*3.5)-3.5)+1.4)*(1/textScale), tck=-0.05);
 
@@ -467,7 +470,7 @@ addHighlightLegend <- function(data, positionsToHighlight, scale){
 ## clustering results and 1D plots along margins, this time using
 ## ggplot2
 
-plot2dWithMargins <- function(sco, outputFile,positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayErrorBars=FALSE) {
+sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayErrorBars=FALSE) {
   densityData = sco@densities
   vafs.merged = sco@vafs.merged
   vafs.1d.merged = sco@vafs.1d

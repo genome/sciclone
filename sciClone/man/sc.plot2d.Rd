@@ -6,7 +6,10 @@
 \description{
   Creates a pdf with one plot for each pair of samples.
 }
-\usage{sc.plot2d(sco, outputFile, overlayClusters=TRUE, ellipse.metadata = list())
+\usage{sc.plot2d(sco, outputFile, positionsToHighlight=NULL,
+                 highlightsHaveNames=FALSE, overlayClusters=TRUE,
+                 overlayErrorBars=FALSE, ellipse.metadata = list(),
+                 singlePage=FALSE, scale=1)
 }
 \arguments{
   \item{sco}{
@@ -23,8 +26,25 @@
     boolean argument to decide whether to overlay (binomial) error bars
     on VAFs
   }
+  \item{positionsToHighlight}{
+    a list of positions in 2-column format 1) chromosome 2) position.
+    These points will be highlighted on the output scatterplot by using
+    a different character than that used for other data points
+  }
+  \item{highlightsHaveNames}{
+    boolean argument - if (TRUE), the tool will look for a third column
+    in the file specified by positionsToHighlight and will label these
+    points on the plot.
+  }
   \item{ellipse.metadata}{
     description of ellipses for plotting cluster std errors/deviations
+  }
+  \item{singlePage}{
+    If true, condenses all output plots onto a single page.
+  }
+  \item{scale}{
+    scale the spacing of the plots and fonts up or down to produce output
+    suitable for presentations (try 1.0) or print (try 2.0).
   }
 }  
 \details{  

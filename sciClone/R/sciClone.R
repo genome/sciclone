@@ -3,10 +3,10 @@
 ##
 sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      sampleNames, minimumDepth=100, clusterMethod="bmm",
-                     clusterParams=NULL, purities=NULL, cnCallsAreLog2=FALSE,
+                     clusterParams=NULL, cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doPurityScaling=FALSE,doClusteringAlongMargins=TRUE,plotIntermediateResults=0){
+                     doClusteringAlongMargins=TRUE, plotIntermediateResults=0){
 
   if(verbose){print("checking input data...")}
 
@@ -39,6 +39,11 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     copyNumberCalls = vector("list",dimensions)
   }
 
+  #implemented, but not reliable yet, so always skip these
+  doPurityScaling=FALSE
+  purities=NULL;
+
+  
   if(!(is.null(purities))){
     if(length(purities) != dimensions){
       stop(paste("the number of input purities calls(",length(purities),") does not equal the number of input samples (",dimensions,")\nEither provide a purity for each sample, or set purities to NULL and it will be estimated for you",sep=""))
@@ -52,6 +57,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
 
+  
 
   ##-----------------------------------------
   densityData=NULL
@@ -211,7 +217,6 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       if(verbose){print(paste("finished 1d clustering", sampleNames[i], "..."))}
       numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
       print(paste("found",numClusters,"clusters using", clusterMethod, "in dimension",sampleNames[i]))
-      cat("Centers:\n")
       print(marginalClust[[i]]$cluster.means)
       
       vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
