@@ -1,3 +1,9 @@
+r-tgi-sciclone (1.0-0) lucid; urgency=low
+
+  * Minor cleanups, better documentation. v1.0 release.
+
+ -- Chris Miller <cmiller@genome.wustl.edu>  Tue, 30 Jul 2013 09:26:39 -0500
+
 r-tgi-sciclone (0.2-1) lucid; urgency=low
 
   * Initial Release.

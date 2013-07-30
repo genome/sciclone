@@ -6,6 +6,6 @@ Build-Depends: debhelper (>= 7.4), r-base-dev (>= 2.10.1-2)
  
 Package: r-tgi-sciclone
 Architecture: all
-Depends: bash, r-base (>= 2.10.1-2), r-tgi-bmm (>= 0.1-1)
+Depends: bash, r-base (>= 2.10.1-2), r-tgi-bmm (>= 0.3-1)
 Description: An R package for inferring the subclonal architecture of tumors.
  The sciClone R package integrates the read depth and copy number information at single nucleotide variant locations in order to create a visualization of the sub-clonal variant populations areas of deleted, neutral, and amplified copy number. Variants are optionally clustered to formalize predictions of the sub-clonal makeup of the sample.
