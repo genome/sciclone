@@ -1446,128 +1446,18 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     SEMs.ub <- t(SEM.res$ub)
 
     if(all(indices.to.keep==TRUE) & (apply.large.SEM.condition == TRUE) & (N.c > 1)) {
-
-      for(k in 1:N.c) {
-        if (verbose) {
-          cat(sprintf("%dD: Cluster %d pi = %.3f: ", num.dimensions, k, E.pi[k]))
-        }
-        greater.than.30 <- TRUE
-        greater.than.02 <- TRUE
-        SEM.width.threshold <- 0.02
-        #SEM.width.threshold <- 0.001
-        for(m in 1:num.dimensions) {
-          center <- SEM.centers[k,m]
-          lower <- SEMs.lb[k,m]
-          upper <- SEMs.ub[k,m]
-          std.dev.width <- (std.dev.ub[k,m] - std.dev.lb[k,m])
-          SEM.width <- (SEMs.ub[k,m] - SEMs.lb[k,m])
-          #if((SEM.width/std.dev.width)>.3){ greater.than.30 <- TRUE }
-          #if(SEM.width>.02){ greater.than.02 <- TRUE }
-          if((SEM.width/std.dev.width)<=.3){ greater.than.30 <- FALSE }
-          if(SEM.width<=SEM.width.threshold){ greater.than.02 <- FALSE }
-          if (verbose) {
-            cat(sprintf("%.3f (%.3f, %.3f) [(%.3f) %.3f, %.3f] {%.3f} ", center, lower, upper, width, std.dev.lb[k,m], std.dev.ub[k,m], SEM.width/std.dev.width))
-            if(greater.than.30) { cat("* ") }
-            if(greater.than.02) { cat("**") }
-          }
-        }
-        if (verbose) {
-          cat("\n")
-        }
-        if(greater.than.30 & greater.than.02) { indices.to.keep[k] <- FALSE }
-      }
-      if ( any(indices.to.keep==FALSE) ) {
-        remove.data <- TRUE
-      }
+      cat("Not implemented because std dev not implemented for binomial!\n")
+      q(status=-1)
     } # End apply.large.SEM.condition
 
     if(all(indices.to.keep==TRUE) & (apply.overlapping.SEM.condition == TRUE) & (N.c > 1)) {
-
-      # Determine if component i's center is contained within
-      # component i2's std.dev
-      pi.threshold = 10^-2
-
-      for(i in 1:N.c){
-        i.subsumed.by.another.cluster <- FALSE
-        for(i2 in 1:N.c){
-          if(i == i2) { next }
-          if(indices.to.keep[i2] == FALSE) { next }
-          if(E.pi[i2] < pi.threshold) { next }
-          i.subsumed.by.another.cluster <- TRUE
-          for(l in 1:num.dimensions){
-            i.center <- std.dev.centers[i,l]
-            if((i.center < std.dev.lb[i2,l]) | (i.center > std.dev.ub[i2,l])) {
-              i.subsumed.by.another.cluster <- FALSE
-              break
-            }
-          }
-          if(i.subsumed.by.another.cluster==TRUE) {
-            if(verbose){
-              cat(sprintf("2. Dropping cluster with center: "))
-              for(l in 1:num.dimensions){
-                cat(sprintf("%.3f ", std.dev.centers[i,l]))
-              }
-              cat(sprintf("because it overlaps with: "))
-              for(l in 1:num.dimensions){
-                cat(sprintf("(%.3f, %.3f) ", std.dev.lb[i2,l], std.dev.ub[i2,l]))
-              }
-              cat("\n")
-              break
-            }
-          }
-        }
-        if(i.subsumed.by.another.cluster==TRUE) {
-          indices.to.keep[i] <- FALSE
-        }
-      }
-
+      cat("Not implemented because std dev not implemented for binomial!\n")
+      q(status=-1)
     } # End apply.overlapping.SEM.condition
 
     if(all(indices.to.keep==TRUE) & (apply.overlapping.std.dev.condition == TRUE) & (N.c > 1)) {
-
-      # Determine how much component i's std dev overlaps component i2's std dev
-      overlaps <- matrix(data = 1, nrow=N.c, ncol=N.c)
-      std.dev.overlap.threshold <- 0
-      for(i in 1:N.c){
-        for(i2 in 1:N.c){
-          if(verbose){
-            cat("   ")
-          }
-          for(l in 1:num.dimensions){
-            fraction <- 0
-            if((std.dev.lb[i,l] < std.dev.ub[i2,l]) & (std.dev.ub[i,l] > std.dev.lb[i2,l])) {
-              overlap <- min(std.dev.ub[i,l], std.dev.ub[i2,l]) - max(std.dev.lb[i,l], std.dev.lb[i2,l])
-              fraction <- overlap / ( std.dev.ub[i,l] - std.dev.lb[i,l] )
-            }
-            if((fraction > std.dev.overlap.threshold) & (overlaps[i,i2] != 0)) {
-              overlaps[i,i2] <- fraction
-            } else {
-              overlaps[i,i2] <- 0
-            }
-          }
-        }
-      }
-
-      # Remove one of two overlapping clusters.  If both overlap
-      # (NB: above is not symmetric), then only remove smaller of two.
-      save.verbose <- verbose
-      verbose <- TRUE
-      for(i in 2:N.c){
-        if(indices.to.keep[i] == FALSE) { next }
-        for(i2 in 1:(i-1)){
-          if(indices.to.keep[i2] == FALSE) { next }
-          if(overlaps[i,i2] > 0) {
-            if((overlaps[i2,i] > 0) & (E.pi[i2] < E.pi[i])) {
-              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i2, " because of overlap (", overlaps[i2,i], ") with i = ", i, "\n")}
-              indices.to.keep[i2] <- FALSE
-            } else {
-              if(verbose){cat("Condition (", num.dimensions, "D): Removing ", i, " because of overlap (", overlaps[i2,i], ") with i2 = ", i2, "\n")}
-              indices.to.keep[i] <- FALSE
-            }
-          }
-        }
-      }
-      verbose <- save.verbose
+      cat("Not implemented because std dev not implemented for binomial!\n")
+      q(status=-1)
     } # End apply.overlapping.std.dev.condition
 
 
@@ -1776,6 +1666,12 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     SEM.centers <- t(SEM.res$centers)
     SEMs.lb <- t(SEM.res$lb)
     SEMs.ub <- t(SEM.res$ub)
+
+    # Calculate standard errors
+    std.dev.res <- gaussian.bmm.narrowest.proportion.interval.about.centers(m, alpha, beta, nu, W, width)
+    std.dev.centers <- t(std.dev.res$centers)
+    std.dev.lb <- t(std.dev.res$lb)
+    std.dev.ub <- t(std.dev.res$ub)
 
     if(all(indices.to.keep==TRUE) & (apply.large.SEM.condition == TRUE) & (N.c > 1)) {
 
