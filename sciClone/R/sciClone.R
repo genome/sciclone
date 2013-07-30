@@ -315,8 +315,7 @@ calculate.pvalue <- function(vaf, k, sco) {
     pi <- sco@clust$pi
     pvalue <- bmm.calculate.pvalue(vaf, k, mu, alpha, nu, beta, pi)
   } else {
-    cat("calculate.pvalue not implemented for", cluster.method, "\n")
-    q(status = -1)
+    stop(paste("calculate.pvalue not implemented for", cluster.method))
   }
   return(pvalue)
 }
@@ -568,7 +567,7 @@ getPeaks<-function(series,span=3){
 
 
 ##--------------------------------------------------------------------
-## reorder the clusters to the largest vaf is first
+## reorder the clusters so the largest vaf is first
 ##
 reorderClust <- function(clust){
 
@@ -622,8 +621,7 @@ reorderClust <- function(clust){
   } else if (clust$cluster.method == "binomial.bmm") {
     clust <- reorderBinomialClust(clust, df)
   } else {
-    cat("Cluster reordering not implemented for method", clust$cluster.method, "\n")
-    q(status = -1)
+    stop(paste("Cluster reordering not implemented for method", clust$cluster.method))
   }
   return(clust)
 }

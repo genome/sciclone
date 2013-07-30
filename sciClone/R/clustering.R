@@ -660,8 +660,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
         bmm.res <- bmm.fixed.num.components(X, N.c, r, mu, alpha, nu, beta, c, E.pi, mu0, alpha0, nu0, beta0, c0, convergence.threshold, max.iterations, verbose)
         if((bmm.res$retVal != 0) & (plotIntermediateResults == 0)) {
-            cat("Failed to converge!\n")
-            q(status=-1)
+            stop("Failed to converge!\n")
         }
         mu <- bmm.res$mu
         alpha <- bmm.res$alpha
@@ -1329,8 +1328,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
     bmm.res <- binomial.bmm.fixed.num.components(successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0, convergence.threshold, max.iterations = 10000, verbose = verbose)
     if(bmm.res$retVal != 0) {
-      cat("Failed to converge!\n")
-      q(status=-1)
+      stop("Failed to converge!\n")
     }
 
     a <- bmm.res$a
@@ -1446,18 +1444,15 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     SEMs.ub <- t(SEM.res$ub)
 
     if(all(indices.to.keep==TRUE) & (apply.large.SEM.condition == TRUE) & (N.c > 1)) {
-      cat("Not implemented because std dev not implemented for binomial!\n")
-      q(status=-1)
+      stop("Not implemented because std dev not implemented for binomial!\n")
     } # End apply.large.SEM.condition
 
     if(all(indices.to.keep==TRUE) & (apply.overlapping.SEM.condition == TRUE) & (N.c > 1)) {
-      cat("Not implemented because std dev not implemented for binomial!\n")
-      q(status=-1)
+      stop("Not implemented because std dev not implemented for binomial!\n")
     } # End apply.overlapping.SEM.condition
 
     if(all(indices.to.keep==TRUE) & (apply.overlapping.std.dev.condition == TRUE) & (N.c > 1)) {
-      cat("Not implemented because std dev not implemented for binomial!\n")
-      q(status=-1)
+      stop("Not implemented because std dev not implemented for binomial!\n")
     } # End apply.overlapping.std.dev.condition
 
 
@@ -1548,8 +1543,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 
     bmm.res <- gaussian.bmm.fixed.num.components(vafs, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0, convergence.threshold, max.iterations, verbose)
     if(bmm.res$retVal != 0) {
-      cat("Failed to converge!\n")
-      q(status=-1)
+      stop("Failed to converge!\n")
     }
 
     m <- bmm.res$m

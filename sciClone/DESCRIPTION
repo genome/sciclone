@@ -9,4 +9,4 @@ License: Apache License 2.0 | file LICENSE
 Depends: IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix,
         methods, NORMT3, MKmisc, TeachingDemos
 
-Packaged: 2013-07-29 05:43:34 PM; cmiller
+Packaged: 2013-07-30 04:11:07 PM; cmiller
