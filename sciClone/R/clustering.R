@@ -573,13 +573,13 @@ bmm.calculate.pvalue <- function(vaf, k, mu, alpha, nu, beta, pi) {
 ## ##
 bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, E.pi, mu0, alpha0, nu0, beta0, c0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold.1d=0.7, apply.pvalue.outlier.condition = TRUE){
+                                plotIntermediateResults = 0, overlap.threshold=0.7, apply.pvalue.outlier.condition = TRUE){
 
     total.iterations <- 0
     N <- dim(X)[1]
     num.dimensions <- dim(X)[2]
 
-    overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
+    effective.overlap.threshold = min(overlap.threshold^(1/num.dimensions), 0.8)
 
 
     # If we are plotting intermediate results, keep the cluster "names"/
@@ -982,12 +982,12 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             # Just drop min overlap
             overlaps <- calculate.self.overlap(r)
 
-            if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
+            if(min(overlaps, na.rm=TRUE) < effective.overlap.threshold) {
                 for(k in 1:N.c) {
                     # Small clusters will have undefined overlaps, just skip.
                     # We'll remove them later.
                     if(is.nan(overlaps[k])) { next }
-                    if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
+                    if((overlaps[k] < effective.overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                         indices.to.keep[k] <- FALSE
                         if(verbose){
                           cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
@@ -1299,14 +1299,14 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 ## ##
 binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold.1d=0.7){
+                                plotIntermediateResults = 0, overlap.threshold=0.7){
 
 
   total.iterations <- 0
   num.dimensions <- dim(successes)[2]
 
   #overlap.threshold = overlap.threshold.1d^(1/num.dimensions)
-  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
+  effective.overlap.threshold = min(overlap.threshold^(1/num.dimensions), 0.8)
 
   N <- dim(successes)[1]
 
@@ -1400,12 +1400,12 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       # Just drop min overlap
       overlaps <- calculate.self.overlap(r)
 
-      if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
+      if(min(overlaps, na.rm=TRUE) < effective.overlap.threshold) {
           for(k in 1:N.c) {
               # Small clusters will have undefined overlaps, just skip.
               # We'll remove them later.
               if(is.nan(overlaps[k])) { next }
-              if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
+              if((overlaps[k] < effective.overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                   indices.to.keep[k] <- FALSE
                   if(verbose){
                     cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))
@@ -1515,13 +1515,13 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 ## ##
 gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold.1d=0.7){
+                                plotIntermediateResults = 0, overlap.threshold=0.7){
 
   total.iterations <- 0
   num.dimensions <- dim(successes)[2]
 
   #overlap.threshold = overlap.threshold.1d^(1/num.dimensions)
-  overlap.threshold = min(overlap.threshold.1d^(1/num.dimensions), 0.8)
+  effective.overlap.threshold = min(overlap.threshold^(1/num.dimensions), 0.8)
 
   N <- dim(successes)[1]
 
@@ -1618,12 +1618,12 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       # Just drop min overlap
       overlaps <- calculate.self.overlap(r)
 
-      if(min(overlaps, na.rm=TRUE) < overlap.threshold) {
+      if(min(overlaps, na.rm=TRUE) < effective.overlap.threshold) {
           for(k in 1:N.c) {
               # Small clusters will have undefined overlaps, just skip.
               # We'll remove them later.
               if(is.nan(overlaps[k])) { next }
-              if((overlaps[k] < overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
+              if((overlaps[k] < effective.overlap.threshold) & (overlaps[k] == min(overlaps, na.rm=TRUE))) {
                   indices.to.keep[k] <- FALSE
                   if(verbose){
                     cat(sprintf("Condition (%dD): Remove cluster %d pi = %.3f self-overlap = %.3f", num.dimensions, k, E.pi[k], overlaps[k]))

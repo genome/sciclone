@@ -488,6 +488,13 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
   xmin <- -5
   xmax <- 105
 
+  # NB: ymin and ymax below on the right-hand side of the = are
+  # referring to verbatim names in the data argument.  But R CMD check
+  # doesn't understand this, so define these variables.  This is only
+  # a hack to quiet R CMD check and does not affect the ggplot call.
+  ymin <- NULL
+  ymax <- NULL
+  
   tmp.file <- tempfile("outputFile.tmp")
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
 
@@ -530,6 +537,8 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
     bin.width <- 2.5
     num.breaks <- ceiling(100/bin.width) + 1
     breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
+    # This is just to appease R CMD check--it does not effect the
+    # geom_histogram call below.
     ..ncount..=NULL;
     g <- g + geom_histogram(data = frequencies, mapping=aes(x, y=..ncount..*100), fill="white", colour=gray(0.4), breaks=breaks)
 
@@ -628,6 +637,12 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
         clusters <- unlist(lapply(clusters, as.character))
         frequencies.no.highlight <- data.frame(x=v.no.highlight$vaf.1, y=v.no.highlight$vaf.2, shape=clusters, colour=clusters, row.names=NULL, stringsAsFactors=FALSE)
 
+        # NB: shape and colour below on the right-hand side of the = are
+        # referring to verbatim names in the data argument.  But R CMD check
+        # doesn't understand this, so define these variables.  This is only
+        # a hack to quiet R CMD check and does not affect the ggplot call.
+        shape <- NULL
+        colour <- NULL
         g <- ggplot(data = frequencies.no.highlight, aes(x=x, y=y)) + ggtitle(title) + xlab(xlab) + ylab(ylab) + geom_point(data = frequencies.no.highlight, aes(x=x, y=y, shape=shape, colour=colour))
 
         # Plot a legend
