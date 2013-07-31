@@ -530,7 +530,7 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
     bin.width <- 2.5
     num.breaks <- ceiling(100/bin.width) + 1
     breaks <- unlist(lapply(0:(num.breaks-1), function(x) 100*x/(num.breaks-1)))
-
+    ..ncount..=NULL;
     g <- g + geom_histogram(data = frequencies, mapping=aes(x, y=..ncount..*100), fill="white", colour=gray(0.4), breaks=breaks)
 
     # Need to "print" the graph in order to see its maximum y value
