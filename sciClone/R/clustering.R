@@ -31,7 +31,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       overlap.threshold=0.7
       apply.pvalue.outlier.condition <- TRUE
       if(grepl("overlap.threshold",params)){
-        overlap.threshold = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        overlap.threshold = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
       }
       if(grepl("no.pvalue.outlier.detection",params)){
         cat("Disable pvalue outlier condition\n")
@@ -47,7 +47,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       ##handle input params to clustering method - only supports one for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
       if(grepl("overlap.threshold",params)){
-        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        val = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
         return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))
       }
     }
@@ -59,7 +59,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       ##handle input params to clustering method - only supports one for now...
       params=strsplit(params,", *",perl=TRUE)[[1]]
       if(grepl("overlap.threshold",params)){
-        val = strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2]
+        val = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
         return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters))
       }
     }
@@ -1192,14 +1192,13 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
           E.pi <- E.pi[indices.to.keep]
           E.lnpi <- E.lnpi[indices.to.keep]
 
-          N.c <- length(E.pi)
-
           if (remove.data == TRUE) {
             cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
-            new.outliers <- matrix(X[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
+            # clusters == 0 -> outlier already                            
+            new.outliers <- matrix(X[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
             outliers <- rbind(outliers, new.outliers)
             # To remove data from the data set, set its entries to NA
-            X[!(clusters %in% cluster.indices.to.keep),] <- NA
+            X[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
           }
 
           colnames(X) <- x.colnames
@@ -1466,17 +1465,18 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       E.pi <- E.pi[indices.to.keep]
       E.lnpi <- E.lnpi[indices.to.keep]
 
-      N.c <- length(E.pi)
-
       if(remove.data == TRUE) {
         cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
-        new.outliers <- matrix(vafs[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
+        # clusters == 0 -> outlier already        
+        new.outliers <- matrix(vafs[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
         outliers <- rbind(outliers, new.outliers)
         # To remove data from the data set, set its entries to NA
-        vafs[!(clusters %in% cluster.indices.to.keep),] <- NA
-        successes[!(clusters %in% cluster.indices.to.keep),] <- NA
-        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA
+        vafs[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
+        successes[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
+        total.trials[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
       }
+
+      N.c <- length(E.pi)
 
       r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
       ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
@@ -1803,17 +1803,18 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
       E.pi <- E.pi[indices.to.keep]
       E.lnpi <- E.lnpi[indices.to.keep]
 
-      N.c <- length(E.pi)
-
       if(remove.data == TRUE) {
         cluster.indices.to.keep <- (1:N.c)[indices.to.keep]
-        new.outliers <- matrix(vafs[!(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
+        # clusters == 0 -> outlier already                
+        new.outliers <- matrix(vafs[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),], ncol=num.dimensions)
         outliers <- rbind(outliers, new.outliers)
         # To remove data from the data set, set its entries to NA
-        vafs[!(clusters %in% cluster.indices.to.keep),] <- NA
-        successes[!(clusters %in% cluster.indices.to.keep),] <- NA
-        total.trials[!(clusters %in% cluster.indices.to.keep),] <- NA
+        vafs[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
+        successes[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
+        total.trials[!(clusters == 0) & !(clusters %in% cluster.indices.to.keep),] <- NA
       }
+
+      N.c <- length(E.pi)
 
       r <- matrix(r[,indices.to.keep], nrow=N, ncol=N.c)
       ln.rho <- matrix(ln.rho[,indices.to.keep], nrow=N, ncol=N.c)
