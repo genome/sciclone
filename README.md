@@ -98,12 +98,16 @@ https://github.com/genome/bmm
 Manuscript currently in preparation:
 
 
-SciClone: An R package for detection of clonal architecture in tumors
+SciClone: Inferring clonal architecture and tracking the spatial and temporal patterns of tumor evolution
 
 Christopher A. Miller<sup>1*</sup>, Brian S. White<sup>2*</sup>, Nathan D. Dees<sup>1</sup>, John S. Welch<sup>2,3</sup>, Malachi Griffith<sup>1</sup>, Obi Griffith<sup>1</sup>, Ravi Vij<sup>2,3</sup>, Michael H. Tomasson<sup>2,3</sup>, Timothy A. Graubert<sup>2,3</sup>, Matthew J. Walter<sup>2,3</sup>, William Schierding<sup>1</sup>, Timothy J. Ley<sup>1,2,3</sup>, John F. DiPersio<sup>2,3</sup>, Elaine R. Mardis<sup>1,3,4</sup>, Richard K. Wilson<sup>1,3,4</sup>, and Li Ding<sup>1,2,3,4</sup>
 
 <sup>1</sup>The Genome Institute 
+
 <sup>2</sup>Department of Medicine 
+
 <sup>3</sup>Siteman Cancer Center 
+
 <sup>4</sup>Department of Genetics Washington University, St. Louis, MO 63110, USA
+
 <sup>*</sup> These authors contributed equally to this work
