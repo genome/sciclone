@@ -2,17 +2,19 @@ An R package for inferring the subclonal architecture of tumors
 
 ## Installation instructions:
 
+Both the 'sciClone' package and it's 'bmm' dependency will be available for installation 
+through CRAN shortly. In the meantime, you can install by doing the following:
+
 First make sure that you have the dependencies:
 IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
 
-bmm is not yet in the repos and can be grabbed here:
+bmm is not yet in the repos and can be downloaded here:
 https://github.com/genome/bmm
-
 
     $ git clone git@github.com:genome/sciclone.git
     $ cd sciclone/
     $ R CMD build sciClone
-    $ R CMD INSTALL sciClone_0.4.0.tar.gz
+    $ R CMD INSTALL sciClone_1.0.0.tar.gz
 
 
 ## Usage
