@@ -2,8 +2,7 @@ An R package for inferring the subclonal architecture of tumors
 
 ## Installation instructions:
 
-Both the 'sciClone' package and it's 'bmm' dependency will be available for installation 
-through CRAN shortly. In the meantime, you can install by doing the following:
+Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing the following:
 
 First make sure that you have the dependencies:
 IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
@@ -95,6 +94,9 @@ https://github.com/genome/bmm
 - Requires host system to have imagemagick installed before it can produce animated gif output of 3d plots. 
 
 - Input formats described in the documentation (see ?sciClone)
+
+## Test Data
+To run a small suite of tests that demonstrate the capabilities of sciClone and verify that it is installed correctly, see the tests directory (specifically the shortTest.R file).
 
 ## Reference
 Manuscript currently in preparation:
