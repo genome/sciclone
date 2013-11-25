@@ -53,6 +53,7 @@ sc.plot1d <- function(sco, outputFile,
 
   clust = NULL
   if(overlayClusters){
+    print("OVERLAY")
     if(is.null(sco@clust[1])){
       print("ERROR: can't overlay clusters when clustering was not done on the input data")
       return(0)
@@ -948,13 +949,13 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
             }
           }
         }
-      } else {
+      } else { #no clusters plotted
         if(dim(v.no.highlight)[1] > 0) {
           if(overlayErrorBars == TRUE) {
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x", cex=scale)
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y", cex=scale)
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x", cex=scale, col=getClusterColors(1)[1])
+            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y", cex=scale, col=getClusterColors(1)[1])
           } else {
-            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=14, cex=scale)
+            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, cex=scale, col=getClusterColors(1)[1])
           }
         }
       }
