@@ -281,19 +281,19 @@ writeClusterSummaryTable <- function(sco, outputFile){
     out <- paste(outputFile, ".means", sep="")
     a = t(sco@clust[["cluster.means"]])
     colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sc@clust$cluster.assignments)),sep="")
+    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
     
     out <- paste(outputFile, ".lower", sep="")
     a = t(sco@clust[["cluster.lower"]])
     colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sc@clust$cluster.assignments)),sep="")
+    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
 
     out <- paste(outputFile, ".upper", sep="")
     a = t(sco@clust[["cluster.upper"]])
     colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sc@clust$cluster.assignments)),sep="")
+    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
 }
 
