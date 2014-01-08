@@ -53,7 +53,6 @@ sc.plot1d <- function(sco, outputFile,
 
   clust = NULL
   if(overlayClusters){
-    print("OVERLAY")
     if(is.null(sco@clust[1])){
       print("ERROR: can't overlay clusters when clustering was not done on the input data")
       return(0)
@@ -316,19 +315,19 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
-  addPoints <- function(data, color, highlightSexChrs, pch=NULL, cex=0.75){
+  addPoints <- function(data, color, highlightSexChrs, pch=16, cex=0.75){
     outlineCol = rgb(0,0,0,0.1);
     if(highlightSexChrs){
       ##plot autosomes
       data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=16, cex=cex, col=color);
+      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=pch, cex=cex, col=color);
       #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75, col=outlineCol, lwd=);
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=17, cex=cex, col=color);
+      points(data.sex$vaf, data.sex$depth, type="p", pch=pch+1, cex=cex, col=color);
       #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75, col=outlineCol);
     } else {
-      points(data$vaf, data$depth, type="p", pch=16, cex=cex, col=color);
+      points(data$vaf, data$depth, type="p", pch=pch, cex=cex, col=color);
       ##add outline
       #points(data$vaf, data$depth, type="p", pch=1, cex=0.75, col=outlineCol);
     }
@@ -350,10 +349,16 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       ## then the clustered points
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
-        addPoints(p,cols[i],highlightSexChrs, cex=cex.points)
+        addPoints(p[p$chr != "CN",], cols[i],highlightSexChrs, cex=cex.points)
+        ##highlight CN-derived points
+        addPoints(p[p$chr == "CN",], "black", highlightSexChrs, pch=15, cex=cex.points+0.5)
+        addPoints(p[p$chr == "CN",], "yellow", highlightSexChrs, pch=15, cex=cex.points)
       }
-    } else { #just use the normal color
-      addPoints(data,ptcolor,highlightSexChrs, cex=cex.points)
+    } else { ##just use the normal color
+      addPoints(data[data$chr != "CN",], ptcolor, highlightSexChrs, cex=cex.points)
+      ##highlight CN-derived points
+      addPoints(data[data$chr == "CN",], "black", highlightSexChrs, pch=15, cex=cex.points+0.5)
+      addPoints(data[data$chr == "CN",], "yellow", highlightSexChrs, pch=15, cex=cex.points)
     }
 
 
