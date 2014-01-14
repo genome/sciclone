@@ -616,7 +616,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       # NB: 0.98 was determined for 3 dimensions; should be run for 4, 5, etc.
       # However, note that this threshold is bounded by 1--so we are
       # already close to the maximum value.
-      if(num.dimesions == 1) {
+      if(num.dimensions == 1) {
         effective.overlap.threshold <- 0.53
       } else if(num.dimensions == 2) {
         effective.overlap.threshold <- 0.91
@@ -1364,7 +1364,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # NB: 0.98 was determined for 3 dimensions; should be run for 4, 5, etc.
     # However, note that this threshold is bounded by 1--so we are
     # already close to the maximum value.
-    if(num.dimesions == 1) {
+    if(num.dimensions == 1) {
       effective.overlap.threshold <- 0.53
     } else if(num.dimensions == 2) {
       effective.overlap.threshold <- 0.91
@@ -1601,7 +1601,7 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     # NB: 0.98 was determined for 3 dimensions; should be run for 4, 5, etc.
     # However, note that this threshold is bounded by 1--so we are
     # already close to the maximum value.
-    if(num.dimesions == 1) {
+    if(num.dimensions == 1) {
       effective.overlap.threshold <- 0.53
     } else if(num.dimensions == 2) {
       effective.overlap.threshold <- 0.91
