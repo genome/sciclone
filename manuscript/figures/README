@@ -1,0 +1,1 @@
+Each directory contains the data and scripts needed to generate a figure from the manuscript. After installing sciClone, cd into the directory, run R, then source the "run.R" file to output figures.
