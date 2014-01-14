@@ -280,20 +280,22 @@ writeClusterTable <- function(sco, outputFile){
 writeClusterSummaryTable <- function(sco, outputFile){
     out <- paste(outputFile, ".means", sep="")
     a = t(sco@clust[["cluster.means"]])
-    colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
+    #num.clusters <- max(sco@clust$cluster.assignments)
+    num.clusters <- nrow(a)
+    colnames(a) = c(sco@sampleNames)
+    rownames(a) = paste("cluster",1:num.clusters,sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
     
     out <- paste(outputFile, ".lower", sep="")
     a = t(sco@clust[["cluster.lower"]])
-    colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
+    colnames(a) = c(sco@sampleNames)
+    rownames(a) = paste("cluster",1:num.clusters,sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
 
     out <- paste(outputFile, ".upper", sep="")
     a = t(sco@clust[["cluster.upper"]])
-    colnames(a) = c(sc@sampleNames)
-    rownames(a) = paste("cluster",1:(max(sco@clust$cluster.assignments)),sep="")
+    colnames(a) = c(sco@sampleNames)
+    rownames(a) = paste("cluster",1:num.clusters,sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
 }
 
@@ -358,7 +360,7 @@ addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
   }
 
   ##round these values to absolute calls
-  for(n in 1:4){
+  for(n in 0:4){
     pos = which(vafs$cn >= (n-copyNumberMargins) & vafs$cn < (n+copyNumberMargins))
     if(length(pos) > 0){
       vafs[pos,]$cleancn = n
