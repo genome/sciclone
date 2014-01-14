@@ -5,7 +5,7 @@ sc.plot1d <- function(sco, outputFile,
                    cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
                    overlayIndividualModels=TRUE, showHistogram=FALSE,
-                   showTitle=TRUE, biggerText=FALSE, highlightsOnHistogram=FALSE){
+                   showTitle=TRUE, biggerText=FALSE, highlightsOnHistogram=FALSE, highlightCnPoints=FALSE){
 
 
   densityData = sco@densities
@@ -128,7 +128,7 @@ sc.plot1d <- function(sco, outputFile,
 
 
     ##colors for different copy numbers
-    colors=c("#1C3660AA","#67B32EAA","#F49819AA","#E52420AA")
+    colors=c("#1C366099","#67B32E99","#F4981999","#E5242099")
 
     density.curve.width <- 4
     for(i in cnToPlot){
@@ -279,7 +279,7 @@ sc.plot1d <- function(sco, outputFile,
       for(i in cnToPlot){
         v = vafs[which(vafs$cleancn==i & vafs$adequateDepth==1),];
 
-        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=FALSE)
+        drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=FALSE, highlightCnPoints=highlightCnPoints)
         axis(side=1,at=c(0,20,40,60,80,100), labels=c(0,20,40,60,80,100), cex.axis=(0.6/scale)*textScale, lwd=0.5, lwd.ticks=0.5, padj=((-scale*5)+5-1.4)*(1/textScale), tck=-0.05);
         
         
@@ -302,7 +302,7 @@ sc.plot1d <- function(sco, outputFile,
 ##--------------------------------------------------------------------
 ## draw a scatter plot of vaf vs depth
 ##
-drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1, textScale=1, axisPosScale=1, labelOnPlot=FALSE){
+drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors, cn, maxDepth, highlightsHaveNames, overlayClusters, scale=1, textScale=1, axisPosScale=1, labelOnPlot=FALSE, highlightCnPoints=FALSE){
 
   cex.points = 1/scale
 
@@ -315,23 +315,38 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
                col="#00000000", xlim=c(0,100), ylim=c(5,maxDepth*3),
                axes=FALSE, ann=FALSE, xaxs="i", yaxs="i");
 
-  addPoints <- function(data, color, highlightSexChrs, pch=16, cex=0.75){
+  addPoints <- function(data, color, highlightSexChrs, pch=16, cex=0.75, highlightCnPoints){
     outlineCol = rgb(0,0,0,0.1);
+
+    data.sex=NULL
+    data.cn=NULL
+    
     if(highlightSexChrs){
-      ##plot autosomes
-      data.autosomes = data[!(data$chr == "X" | data$chr == "Y"),]
-      points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=pch, cex=cex, col=color);
-      #points(data.autosomes$vaf, data.autosomes$depth, type="p", pch=1, cex=0.75, col=outlineCol, lwd=);
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
-      points(data.sex$vaf, data.sex$depth, type="p", pch=pch+1, cex=cex, col=color);
-      #points(data.sex$vaf, data.sex$depth, type="p", pch=1, cex=0.75, col=outlineCol);
-    } else {
-      points(data$vaf, data$depth, type="p", pch=pch, cex=cex, col=color);
-      ##add outline
-      #points(data$vaf, data$depth, type="p", pch=1, cex=0.75, col=outlineCol);
+      ##store autosomes
+      data = data[!(data$chr == "X" | data$chr == "Y"),]
+    }
+    if(highlightCnPoints){
+      ##highlight CN-derived points
+      data.cn = data[data$chr == "CN",]
+      ##store the rest
+      data = data[!(data$chr == "CN"),]
+
     }
 
+    ##plot points normally
+    points(data$vaf, data$depth, type="p", pch=pch, cex=cex, col=color);
+
+    if(!(is.null(data.sex))){
+      ##plot sex chromsomes with different shape
+      points(data.sex$vaf, data.sex$depth, type="p", pch=pch+1, cex=cex, col=color);
+    }
+    if(!(is.null(data.cn))){
+      ##plot cn events with different shape
+      points(data.cn$vaf, data.cn$depth, type="p", pch=15, cex=cex+0.5, col="black");
+      points(data.cn$vaf, data.cn$depth, type="p", pch=15, cex=cex, col="yellow");    
+    }
   }
 
   #do we have any points to plot?
@@ -344,21 +359,18 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       ##plot cluster zero points in grey
       p = data[data$cluster == 0,]
       if(length(p[,1]) > 0){
-        addPoints(p, rgb(0,0,0,0.20), highlightSexChrs, cex=(cex.points*0.6))
+        addPoints(p, rgb(0,0,0,0.20), highlightSexChrs, cex=(cex.points*0.6), highlightCnPoints=highlightCnPoints)
       }
       ## then the clustered points
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
-        addPoints(p[p$chr != "CN",], cols[i],highlightSexChrs, cex=cex.points)
-        ##highlight CN-derived points
-        addPoints(p[p$chr == "CN",], "black", highlightSexChrs, pch=15, cex=cex.points+0.5)
-        addPoints(p[p$chr == "CN",], "yellow", highlightSexChrs, pch=15, cex=cex.points)
-      }
+        addPoints(p, cols[i], highlightSexChrs, cex=cex.points, highlightCnPoints=highlightCnPoints)
+      }        
     } else { ##just use the normal color
-      addPoints(data[data$chr != "CN",], ptcolor, highlightSexChrs, cex=cex.points)
+      addPoints(data[data$chr != "CN",], ptcolor, highlightSexChrs, cex=cex.points, highlightCnPoints=highlightCnPoints)
       ##highlight CN-derived points
-      addPoints(data[data$chr == "CN",], "black", highlightSexChrs, pch=15, cex=cex.points+0.5)
-      addPoints(data[data$chr == "CN",], "yellow", highlightSexChrs, pch=15, cex=cex.points)
+      addPoints(data[data$chr == "CN",], "black", highlightSexChrs, pch=15, cex=cex.points+0.5, highlightCnPoints=highlightCnPoints)
+      addPoints(data[data$chr == "CN",], "yellow", highlightSexChrs, pch=15, cex=cex.points, highlightCnPoints=highlightCnPoints)
     }
 
 
@@ -399,8 +411,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
             }
           }
         } else {
-          addPoints(addpts, col="#555555FF", highlightSexChrs, cex=cex.points);
-          ##points(x=addpts$vaf,y=addpts$depth,type="p",pch=7,cex=0.8,col="#555555FF");
+          addPoints(addpts, col="#555555FF", highlightSexChrs, cex=cex.points, highlightCnPoints);
         }
       }
     }
@@ -1139,7 +1150,7 @@ getClusterColors <- function(numClusters){
   ##add transparency to colors
   for(i in 1:length(cols)){
     z = col2rgb(cols[i])
-    cols[i] = rgb(z[1], z[2], z[3], 200, maxColorValue=255)
+    cols[i] = rgb(z[1], z[2], z[3], 150, maxColorValue=255)
   }
   return(cols)
 }
