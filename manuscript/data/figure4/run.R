@@ -402,3 +402,17 @@ dev.off()
 
 save.image("out.Rdata")
 
+#clean up the mess
+dir.create("tmp")
+files = c(Sys.glob("*.pdf"),Sys.glob("*.clust*"), Sys.glob("*.tsv"))
+for(i in files){
+  file.rename(i,paste("tmp",i,sep="/"))
+}
+
+#move back the files we want
+file.rename("tmp/figure4a.pdf","figure4c.pdf")
+file.rename("tmp/figure4b.pdf","figure4a.pdf")
+
+file.rename("tmp/supp-fig1.pdf","suppFigure2a.pdf")
+file.rename("tmp/supp-fig2.pdf","suppFigure2b.pdf")
+
