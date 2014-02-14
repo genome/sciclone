@@ -162,8 +162,8 @@ clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, sa
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
-      print(paste("ERROR: only",length(vafs[,1])," points 0 not enough points to cluster when using",initialClusters,"intialClusters. Provide more data or reduce your maximumClusters option"))
-      return(list(NULL))
+      print(paste("ERROR: only",length(vafs[,1])," points; reducing number of clusters from", initialClusters, "to", length(vafs[,1]),"\n"))
+      initialClusters <- length(vafs[,1])
     }
 
     #replace any values of zero with a very small number to prevent errors
@@ -301,8 +301,8 @@ clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
-      print(paste("ERROR: only",length(vafs[,1])," points 0 not enough points to cluster when using",initialClusters,"intialClusters. Provide more data or reduce your maximumClusters option"))
-      return(list(NULL))
+      print(paste("ERROR: only",length(vafs[,1])," points; reducing number of clusters from", initialClusters, "to", length(vafs[,1]),"\n"))
+      initialClusters <- length(vafs[,1])
     }
 
     total.trials <- vars + refs
@@ -435,8 +435,8 @@ clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialCluster
 
     initialClusters=initialClusters
     if(length(vafs[,1]) <= initialClusters){
-      print(paste("ERROR: only",length(vafs[,1])," points 0 not enough points to cluster when using",initialClusters,"intialClusters. Provide more data or reduce your maximumClusters option"))
-      return(list(NULL))
+      print(paste("ERROR: only",length(vafs[,1])," points; reducing number of clusters from", initialClusters, "to", length(vafs[,1]),"\n"))
+      initialClusters <- length(vafs[,1])
     }
 
     total.trials <- vars + refs
