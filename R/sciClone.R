@@ -143,8 +143,11 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     return(NULL);
   }
 
-  print(paste(length(vafs.merged.cn2[,1]),"sites are copy number neutral and have adequate depth in all samples"))
-
+  cat(paste(length(vafs.merged.cn2[,1]),"sites (of", length(vafs.merged[,1]), "original sites) are copy number neutral and have adequate depth in all samples\n"))
+  cat(paste(nrow(vafs.merged[!as.logical(cnNeutral),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of copy-number alterations\n")
+  cat(paste(nrow(vafs.merged[!as.logical(adequateDepth),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of inadequate depth\n")  
+  cat(paste(nrow(vafs.merged[!as.logical(cnNeutral) | !as.logical(adequateDepth),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of copy-number alterations or inadequate depth\n")
+  
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
   vafs.merged.orig <- vafs.merged
@@ -452,10 +455,6 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
       if(length(vafs[,1]) == 0){return(vafs)}
     }
 
-    ##add depth
-    vafs = vafs[vafs$vaf > 0 | ( vafs$var + vafs$ref ) > 0,]
-    vafs$depth = mapply(function(var, ref, vaf) ifelse(vaf == 0, var + ref, round(var/(vaf/100))), vafs$var, vafs$ref, vafs$vaf)
-
     ##add cn calls
     if(is.null(cn)){
         ##assume all sites are 2x if no cn info
@@ -467,6 +466,11 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         }
         vafs = addCnToVafs(vafs, cn, copyNumberMargins)
     }
+    
+    ##add depth
+    vafs = vafs[vafs$vaf > 0 | ( vafs$var + vafs$ref ) > 0,]
+    vafs$depth = mapply(function(var, ref, vaf) ifelse(vaf == 0, var + ref, round(var/(vaf/100))), vafs$var, vafs$ref, vafs$vaf)
+
     ##remove sex chromosomes if specified
     if(!(useSexChrs)){
         vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
