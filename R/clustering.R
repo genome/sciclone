@@ -26,6 +26,7 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
   ##check for suitable method
   apply.uncertainty.self.overlap.condition <- TRUE
   apply.min.items.condition <- TRUE
+  apply.overlapping.std.dev.condition <- TRUE
   if(!is.null(params)){
     if(grepl("no.uncertainty.overlap.detection",params)){
       cat("Disable uncertainty overlap detection\n")
@@ -34,7 +35,11 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
     if(grepl("no.min.items.condition",params)){
       cat("Disable min cluster size detection\n")
       apply.min.items.condition <- FALSE
-    }    
+    }
+    if(grepl("no.apply.overlapping.std.dev.condition", params)) {
+      cat("Disable overlapping std dev condition\n")
+      apply.overlapping.std.dev.condition <- FALSE
+    }
   }
   
   if(method == "bmm"){
@@ -45,9 +50,20 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       overlap.threshold=0.7
       apply.pvalue.outlier.condition <- TRUE
       outlier.pvalue.threshold=0.01
+      alpha0 = 0.005
+      mu0 = 1
+      c0 = NULL
       
       if(grepl("overlap.threshold",params)){
         overlap.threshold = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
+      }
+      if(grepl("alpha0",params)){
+        alpha0 = as.numeric(strsplit(params[grep("alpha0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using alpha0 = ", alpha0, "\n", sep=""))
+      }
+      if(grepl("mu0",params)){
+        mu0 = as.numeric(strsplit(params[grep("mu0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using mu0 = ", mu0, "\n", sep=""))
       }
       if(grepl("no.pvalue.outlier.detection",params)){
         cat("Disable pvalue outlier condition\n")
@@ -56,10 +72,14 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       if(grepl("outlier.pvalue.threshold",params)){
         outlier.pvalue.threshold = as.numeric(strsplit(params[grep(" outlier.pvalue.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
       }
-      
-      return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition,initialClusters=maximumClusters, outlier.pvalue.threshold=outlier.pvalue.threshold,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+      if(grepl("c0",params)){
+        c0 = as.numeric(strsplit(params[grep("c0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using c0 = ", c0, "\n", sep=""))
+      }
+
+      return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition,initialClusters=maximumClusters, outlier.pvalue.threshold=outlier.pvalue.threshold,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition,alpha0=alpha0,mu0=mu0,c0=c0))
     }
-    return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+    return(clusterWithBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition))
 
 
   } else if(method == "binomial.bmm"){
@@ -68,22 +88,45 @@ clusterVafs <- function(vafs.merged, vafMatrix, varMatrix, refMatrix, maximumClu
       params=strsplit(params,", *",perl=TRUE)[[1]]
       if(grepl("overlap.threshold",params)){
         val = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
-        return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+        return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition))
       }
     }
-    return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+    return(clusterWithBinomialBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition))
 
 
   } else if(method == "gaussian.bmm"){
+    W0 = NULL;
+    beta0 = NULL;
+    nu0 = NULL;
+    c0 = NULL;
+
     if(!is.null(params)){
-      ##handle input params to clustering method - only supports one for now...
-      params=strsplit(params,", *",perl=TRUE)[[1]]
-      if(grepl("overlap.threshold",params)){
-        val = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
-        return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+      if(grepl("W0",params)){
+        W0 = as.numeric(strsplit(params[grep("W0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using W0 = ", W0, "\n", sep=""))
+      }
+      if(grepl("beta0",params)){
+        beta0 = as.numeric(strsplit(params[grep("beta0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using beta0 = ", beta0, "\n", sep=""))
+      }
+      if(grepl("nu0",params)){
+        nu0 = as.numeric(strsplit(params[grep("nu0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using nu0 = ", nu0, "\n", sep=""))
+      }
+      if(grepl("c0",params)){
+        c0 = as.numeric(strsplit(params[grep("c0",params)] ," *= *",perl=TRUE)[[1]][2])
+        cat(paste("Using c0 = ", c0, "\n", sep=""))
       }
     }
-    return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition))
+
+    if(!is.null(params)){
+      ##handle input params to clustering method
+      if(grepl("overlap.threshold",params)){
+        val = as.numeric(strsplit(params[grep("overlap.threshold",params)] ," *= *",perl=TRUE)[[1]][2])
+        return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0, overlap.threshold=val,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition,nu0=nu0, beta0=beta0, W0=W0, c0=c0))
+      }
+    }
+    return(clusterWithGaussianBmm(vafs.merged, vafMatrix, varMatrix, refMatrix, samples=samples, plotIntermediateResults=plotIntermediateResults, verbose=0,initialClusters=maximumClusters,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition,nu0=nu0, beta0=beta0, W0=W0, c0=c0))
   } else {
     print("Error: please choose a supported clustering method\n[bmm|gaussian.bmm|binomial.bmm]");
     return(0);
@@ -156,7 +199,7 @@ reorderBetaClust <- function(clust, ord) {
 ##
 clusterWithBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0,
                            verbose=TRUE, overlap.threshold=0.7, apply.pvalue.outlier.condition=TRUE,
-                           outlier.pvalue.threshold=0.01, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE) {
+                           outlier.pvalue.threshold=0.01, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE, apply.overlapping.std.dev.condition = TRUE, alpha0=0.005, mu0=1, c0=NULL) {
   
     suppressPackageStartupMessages(library(bmm))
 
@@ -173,21 +216,45 @@ uce your maximumClusters option"))
     # NB:  It seems OK to add .Machine$double.eps (without the factor of 100)
     # to 0 to avoid trouble, but subtracting from 1 is not sufficient.  Presumably,
     # there isn't enough accuracy to represent such a number and it is stored as 1.
+    shift.by.machine.precision <- TRUE
+    #shift.by.machine.precision <- FALSE
     delta <- 100 * .Machine$double.eps
-    vafs[which(vafs <= delta)] = delta
+    if(shift.by.machine.precision) {
+      vafs[which(vafs <= delta)] = delta
+    } else {
+      num.dimensions <- ncol(vafs)
+      for(m in 1:num.dimensions) {
+        flag <- vafs[,m] <= delta
+        # Replace 0 values by 1 / num reads
+        min.vaf <- min(vafs[!flag,m])
+        vafs[flag,m] <- unlist(lapply(refs[flag,m], function(x) min(min.vaf, 1/x)))
+      }
+    }
 
     #also replace any values of one to prevent errors
     vafs[which(vafs >= (1-delta))] = 1 - delta
 
+    
     ## Initialize the hyperparameters of the Beta mixture model (bmm).
     hyperparams <- init.bmm.hyperparameters(vafs, initialClusters)
 
+    if(!is.null(c0)) {
+      hyperparams$c0 <- rep(c0, length(hyperparams$c0))
+    }
+    
+    hyperparams$alpha0 <- matrix(data=alpha0, nrow=nrow(hyperparams$alpha0), ncol=ncol(hyperparams$alpha0))
+    hyperparams$beta0 <- hyperparams$alpha0
+
+    hyperparams$mu0 <- matrix(data=mu0, nrow=nrow(hyperparams$mu0), ncol=ncol(hyperparams$mu0))
+    hyperparams$nu0 <- hyperparams$mu0
+
+    
     ## Initialize the parameters of the bmm.
-    params <- init.bmm.parameters(vafs, initialClusters, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0)
+    params <- init.bmm.parameters(vafs, initialClusters, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, verbose=TRUE)
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, params$E.pi, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition, outlier.pvalue.threshold=outlier.pvalue.threshold, apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition)
+    bmm.results <- bmm.filter.clusters(vafs.merged, vafs, initialClusters, params$r, params$mu, params$alpha, params$nu, params$beta, params$c, params$E.pi, hyperparams$mu0, hyperparams$alpha0, hyperparams$nu0, hyperparams$beta0, hyperparams$c0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold,apply.pvalue.outlier.condition=apply.pvalue.outlier.condition, outlier.pvalue.threshold=outlier.pvalue.threshold, apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition)
 
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
@@ -253,6 +320,19 @@ uce your maximumClusters option"))
     ##scale xvals between 1 and 100
     x = x*100
 
+    cat("Converged on the following parameters:\n")
+    cat("mu:\n")
+    write.table(bmm.results$mu, col.names=FALSE, row.names=FALSE, quote=FALSE)
+    cat("alpha:\n")
+    write.table(bmm.results$alpha, col.names=FALSE, row.names=FALSE, quote=FALSE)
+    cat("nu:\n")
+    write.table(bmm.results$nu, col.names=FALSE, row.names=FALSE, quote=FALSE)
+    cat("beta:\n")
+    write.table(bmm.results$beta, col.names=FALSE, row.names=FALSE, quote=FALSE)    
+    cat("pi:\n")
+    cat(paste(bmm.results$E.pi, collapse="\t"))
+    cat("\n")
+    
     #return a list of info
     return(list(
         cluster.assignments = clusters,
@@ -299,7 +379,7 @@ reorderBinomialClust <- function(clust, ord) {
 ##--------------------------------------------------------------------------
 ## Do clustering with binomial bmm (binomial bayesian mixture model)
 ##
-clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.7,apply.uncertainty.self.overlap.condition=TRUE, apply.min.items.condition=TRUE) {
+clusterWithBinomialBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.7,apply.uncertainty.self.overlap.condition=TRUE, apply.min.items.condition=TRUE, apply.overlapping.std.dev.condition = TRUE) { 
     suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
@@ -317,11 +397,11 @@ uce your maximumClusters option"))
     hyperparams <- init.binomial.bmm.hyperparameters(vars, total.trials, initialClusters)
 
     ## Initialize the parameters of the bmm.
-    params <- init.binomial.bmm.parameters(vars, total.trials, initialClusters, hyperparams$a0, hyperparams$b0, hyperparams$alpha0)
+    params <- init.binomial.bmm.parameters(vars, total.trials, initialClusters, hyperparams$a0, hyperparams$b0, hyperparams$alpha0, verbose=TRUE)
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- binomial.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$a, params$b, params$alpha, hyperparams$a0, hyperparams$b0, hyperparams$alpha0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold, apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition)
+    bmm.results <- binomial.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$a, params$b, params$alpha, hyperparams$a0, hyperparams$b0, hyperparams$alpha0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold, apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -436,7 +516,7 @@ reorderGaussianClust <- function(clust, ord) {
 ##--------------------------------------------------------------------------
 ## Do clustering with gaussian bmm (gaussian bayesian mixture model)
 ##
-clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.7,apply.uncertainty.self.overlap.condition=TRUE, apply.min.items.condition=TRUE) {
+clusterWithGaussianBmm <- function(vafs.merged, vafs, vars, refs, initialClusters=10, samples=1, plotIntermediateResults=0, verbose=TRUE, overlap.threshold=0.7,apply.uncertainty.self.overlap.condition=TRUE, apply.min.items.condition=TRUE, apply.overlapping.std.dev.condition = TRUE, nu0 = NULL, beta0 = NULL, W0 = NULL, c0 = NULL) {
     suppressPackageStartupMessages(library(bmm))
 
     initialClusters=initialClusters
@@ -453,12 +533,37 @@ uce your maximumClusters option"))
     ## Initialize the hyperparameters of the gaussian mixture model.
     hyperparams <- init.gaussian.bmm.hyperparameters(vafs, initialClusters)
 
+    if(!is.null(nu0)) {
+      hyperparams$nu0 <- rep(nu0, length(hyperparams$nu0))
+    }
+
+    if(!is.null(W0)) {
+      for(k in 1:initialClusters) {
+        hyperparams$W0[[k]] <- matrix(data=0, nrow=nrow(hyperparams$W0[[k]]), ncol=ncol(hyperparams$W0[[k]]))
+      }
+
+      for(d in 1:nrow(hyperparams$W0[[1]])) {
+        for(k in 1:initialClusters) {
+          hyperparams$W0[[k]][d,d] <- W0
+        }
+      }
+    }
+  
+    if(!is.null(beta0)) {
+      hyperparams$beta0 <- rep(beta0, length(hyperparams$beta0))
+    }
+
+    if(!is.null(c0)) {
+      hyperparams$alpha0 <- rep(c0, length(hyperparams$alpha0))
+    }
+
+    
     ## Initialize the parameters of the model.
-    params <- init.gaussian.bmm.parameters(vafs, initialClusters, hyperparams$m0, hyperparams$alpha0, hyperparams$beta0, hyperparams$nu0, hyperparams$W0)
+    params <- init.gaussian.bmm.parameters(vafs, initialClusters, hyperparams$m0, hyperparams$alpha0, hyperparams$beta0, hyperparams$nu0, hyperparams$W0, verbose=TRUE)
 
     ## Perform the clustering.
     ## Start with the provided number of clusters, but prune any with low probability
-    bmm.results <- gaussian.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$m, params$alpha, params$beta, params$nu, params$W, hyperparams$m0, hyperparams$alpha0, hyperparams$beta0, hyperparams$nu0, hyperparams$W0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition)
+    bmm.results <- gaussian.bmm.filter.clusters(vafs.merged, vafs, vars, total.trials, initialClusters, params$r, params$m, params$alpha, params$beta, params$nu, params$W, hyperparams$m0, hyperparams$alpha0, hyperparams$beta0, hyperparams$nu0, hyperparams$W0, convergence.threshold = 10^-4, max.iterations = 10000, verbose = verbose, plotIntermediateResults=plotIntermediateResults, overlap.threshold=overlap.threshold,apply.uncertainty.self.overlap.condition=apply.uncertainty.self.overlap.condition,apply.min.items.condition=apply.min.items.condition,apply.overlapping.std.dev.condition=apply.overlapping.std.dev.condition)
     if(bmm.results$retVal != 0) {
         cat("WARNING: bmm failed to converge. No clusters assigned\n")
         return(NULL);
@@ -536,6 +641,20 @@ uce your maximumClusters option"))
       x = x*100
     }
 
+    cat("Converged on the following parameters:\n")
+    cat("m:\n")
+    write.table(bmm.results$m, col.names=FALSE, row.names=FALSE, quote=FALSE)
+    cat("alpha:\n")
+    cat(paste(paste(bmm.results$alpha, collapse="\t"), "\n", sep=""))
+    cat("beta:\n")
+    cat(paste(paste(bmm.results$beta, collapse="\t"), "\n", sep=""))
+    cat("nu:\n")
+    cat(paste(paste(bmm.results$nu, collapse="\t"), "\n", sep=""))
+    cat("pi:\n")
+    cat(paste(paste(bmm.results$E.pi, collapse="\t"), "\n", sep=""))
+    cat("\n")
+    
+    
     #return a list of info
     return(list(
         cluster.assignments = clusters,
@@ -606,7 +725,7 @@ bmm.calculate.pvalue <- function(vaf, k, mu, alpha, nu, beta, pi) {
 bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, E.pi, mu0, alpha0, nu0, beta0, c0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
                                 plotIntermediateResults = 0, overlap.threshold=0.7, apply.pvalue.outlier.condition = TRUE,
-                                outlier.pvalue.threshold=0.01, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition=TRUE){
+                                outlier.pvalue.threshold=0.01, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition=TRUE, apply.overlapping.std.dev.condition = TRUE){
 
     total.iterations <- 0
     N <- dim(X)[1]
@@ -684,7 +803,7 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
       sco <- new("scObject", dimensions=num.dimensions, sampleNames=sampleNames, vafs.merged=vafs.with.assignments)
       sc.plot2d(sco, outputFile, ellipse.metadata=ellipse.metadata, positionsToHighlight=positionsToHighlight, highlightsHaveNames=highlightsHaveNames)
     }
-
+  
     # Outer while loop: following convergence of inner loop, apply
     # overlapping cluster condition to drop any overlapping clusters.
     while(TRUE) {
@@ -786,10 +905,10 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         #apply.uncertainty.self.overlap.condition <- FALSE
         apply.large.SEM.condition <- FALSE
         apply.overlapping.SEM.condition <- FALSE
-        apply.overlapping.std.dev.condition <- TRUE
+        #apply.overlapping.std.dev.condition <- TRUE
 
         # Changes on Mar 25, 2013
-        apply.overlapping.std.dev.condition <- FALSE
+        #apply.overlapping.std.dev.condition <- FALSE
         #apply.uncertainty.self.overlap.condition <- TRUE
 
         apply.outlier.condition <- FALSE
@@ -810,7 +929,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 
         if((apply.min.items.condition == TRUE) & (N.c > 1)) {
             threshold.pts <- max(3, ceiling(.005*N))
-
+            threshold.pts <- 3
+            
             num.items.per.cluster <- rep(0, N.c)
             for(n in 1:N) {
                 num.items.per.cluster[clusters[n]] <- num.items.per.cluster[clusters[n]] + 1
@@ -820,6 +940,9 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
             if(any(indices.above.threshold == FALSE)) {
               dropped.clusters <- (1:N.c)[!indices.above.threshold]
               expected.means <- ubar / ( ubar + vbar )
+              save.verbose <- verbose
+              verbose <- TRUE
+
               for(k in dropped.clusters) {
                 indices.to.keep[k] <- FALSE
                 if(verbose){
@@ -832,6 +955,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
                 }
                 break
               }
+              verbose <- save.verbose
+              
             }
 
             if(remove.data.from.small.clusters == TRUE) {
@@ -1297,6 +1422,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
     std.dev.lb <- t(std.dev.res$lb)
     std.dev.ub <- t(std.dev.res$ub)
 
+    save.verbose <- verbose
+    verbose <- TRUE
     for(k in 1:N.c) {
       if(verbose){cat(sprintf("Cluster %d pi = %.3f center =", k, E.pi[k]))}
 
@@ -1318,7 +1445,8 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
         }
         if(verbose){cat("\n")}
     }
-
+    verbose <- save.verbose
+    
     if(verbose){cat(sprintf('total iterations = %d\n', total.iterations))}
 
     retList <- list("retVal" = 0, "mu" = mu, "alpha" = alpha, "nu" = nu, "beta" = beta, "c" = c, "r" = r, "num.iterations" = total.iterations, "ln.rho" = ln.rho, "E.lnu" = E.lnu, "E.lnv" = E.lnv, "E.lnpi" = E.lnpi, "E.pi" = E.pi, "E.quadratic.u" = E.quadratic.u, "E.quadratic.v" = E.quadratic.v, "ubar" = ubar, "vbar" = vbar, "outliers" = outliers)
@@ -1328,13 +1456,12 @@ bmm.filter.clusters <- function(vafs.merged, X, N.c, r, mu, alpha, nu, beta, c, 
 } # End bmm.filter.clusters
 
 
-
 ## ##--------------------------------------------------------------------------
 ## ## The binomial distribution clustering + filtering method
 ## ##
 binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, a, b, alpha, a0, b0, alpha0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold=0.7, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE){
+                                plotIntermediateResults = 0, overlap.threshold=0.7, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE, apply.overlapping.std.dev.condition = TRUE) {
 
 
   total.iterations <- 0
@@ -1385,10 +1512,10 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     #apply.uncertainty.self.overlap.condition <- FALSE
     apply.large.SEM.condition <- FALSE
     apply.overlapping.SEM.condition <- FALSE
-    apply.overlapping.std.dev.condition <- TRUE
+    #apply.overlapping.std.dev.condition <- TRUE
 
     # Changes on Mar 25, 2013
-    apply.overlapping.std.dev.condition <- FALSE
+    #apply.overlapping.std.dev.condition <- FALSE
     #apply.uncertainty.self.overlap.condition <- TRUE
 
     # remove.data = TRUE iff we should remove points assigned to clusters
@@ -1552,7 +1679,7 @@ binomial.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
 ## ##
 gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.trials, N.c, r, m, alpha, beta, nu, W, m0, alpha0, beta0, nu0, W0,
                                 convergence.threshold = 10^-4, max.iterations = 10000, verbose = 0,
-                                plotIntermediateResults = 0, overlap.threshold=0.7, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE){
+                                plotIntermediateResults = 0, overlap.threshold=0.7, apply.uncertainty.self.overlap.condition = TRUE, apply.min.items.condition = TRUE, apply.overlapping.std.dev.condition = TRUE) {
 
   total.iterations <- 0
   num.dimensions <- dim(successes)[2]
@@ -1605,10 +1732,10 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
     #apply.uncertainty.self.overlap.condition <- FALSE
     apply.large.SEM.condition <- FALSE
     apply.overlapping.SEM.condition <- FALSE
-    apply.overlapping.std.dev.condition <- TRUE
+    #apply.overlapping.std.dev.condition <- TRUE
 
     # Changes on Mar 25, 2013
-    apply.overlapping.std.dev.condition <- FALSE
+    #apply.overlapping.std.dev.condition <- FALSE
     #apply.uncertainty.self.overlap.condition <- TRUE
 
     # remove.data = TRUE iff we should remove points assigned to clusters
@@ -1888,6 +2015,44 @@ gaussian.bmm.filter.clusters <- function(vafs.merged, vafs, successes, total.tri
   }
 
   L <- gaussian.bmm.calculate.posterior.predictive.precision(m, alpha, beta, nu, W)
+
+
+  # Calculate standard error of the means
+  SEM.res <- gaussian.bmm.narrowest.mean.interval.about.centers(m, alpha, beta, nu, W, width)
+  SEM.centers <- t(SEM.res$centers)
+  SEMs.lb <- t(SEM.res$lb)
+  SEMs.ub <- t(SEM.res$ub)
+
+  # Calculate standard errors
+  std.dev.res <- gaussian.bmm.narrowest.proportion.interval.about.centers(m, alpha, beta, nu, W, width)
+  std.dev.centers <- t(std.dev.res$centers)
+  std.dev.lb <- t(std.dev.res$lb)
+  std.dev.ub <- t(std.dev.res$ub)
+  
+  save.verbose <- verbose
+  verbose <- TRUE
+  for(k in 1:N.c) {
+    if(verbose){cat(sprintf("Cluster %d pi = %.3f center =", k, E.pi[k]))}
+    
+    for(d in 1:num.dimensions) {
+      center <- SEM.centers[k,d]
+      if(verbose){cat(sprintf(" %.3f", center))}
+    }
+    if(verbose){cat(" SEM =")}
+    for(d in 1:num.dimensions) {
+      lb <- SEMs.lb[k,d]
+      ub <- SEMs.ub[k,d]
+      if(verbose){cat(sprintf(" (%.3f, %.3f)", lb, ub))}
+    }
+    if(verbose){cat(" sd =")}
+    for(d in 1:num.dimensions) {
+      lb <- std.dev.lb[k,d]
+      ub <- std.dev.ub[k,d]
+      if(verbose){cat(sprintf(" (%.3f, %.3f)", lb, ub))}
+    }
+    if(verbose){cat("\n")}
+  }
+  verbose <- save.verbose
 
   retList <- list("retVal" = 0, "m" = m, "alpha" = alpha, "beta" = beta, "nu" = nu, "W" = W, "L" = L, "r" = r, "num.iterations" = total.iterations, "ln.rho" = ln.rho, "E.lnpi" = E.lnpi, "E.pi" = E.pi, "outliers" = outliers)
 

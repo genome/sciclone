@@ -3,10 +3,11 @@
 ##
 sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      sampleNames, minimumDepth=100, clusterMethod="bmm",
-                     clusterParams=NULL, cnCallsAreLog2=FALSE,
+                     clusterParams="no.apply.overlapping.std.dev.condition",
+                     cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doClusteringAlongMargins=TRUE, plotIntermediateResults=0){
+                     doClusteringAlongMargins=TRUE, plotIntermediateResults=0, doPurityScaling=FALSE){
 
   if(verbose){print("checking input data...")}
 
@@ -40,7 +41,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
   #implemented, but not reliable yet, so always skip these
-  doPurityScaling=FALSE
+  #doPurityScaling=FALSE
   purities=NULL;
 
   
@@ -174,12 +175,12 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       } else {
         for(i in 1:dimensions){
           ##use the mean of the max cluster
-          ## purities[i] = round(max(sort(t(clust[["cluster.means"]])[,i]))*2*100,2)
+          purities[i] = round(max(sort(t(clust[["cluster.means"]])[,i]))*2*100,2)
 
           #use the highest point that was assigned to a cluster (not an outlier)
           vafs.tmp = cbind(vafs.merged.cn2,cluster=clust$cluster.assignments)
           vafcols = grep("vaf$",names(vafs.tmp))
-          purities[i] = max(vafs.tmp[vafs.tmp$cluster > 0,vafcols[i]])*2
+          #purities[i] = max(vafs.tmp[vafs.tmp$cluster > 0,vafcols[i]])*2
           print(paste("purity of sample",sampleNames[i],"is estimated to be",purities[[i]]))
           ##do the adjustment to the appropriate columns
           vafcols = grep("vaf$",names(vafs.merged))
