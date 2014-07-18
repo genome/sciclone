@@ -411,7 +411,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
             }
           }
         } else {
-          addPoints(addpts, col="#555555FF", highlightSexChrs, cex=cex.points, highlightCnPoints);
+          addPoints(addpts, col="#555555FF", highlightSexChrs, cex=cex.points, highlightCnPoints=highlightCnPoints);
         }
       }
     }
@@ -860,7 +860,7 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
     nplots = ncol(combn(c(1:dimensions),2))
     nrow=round(sqrt(nplots))
     ncol=ceiling(sqrt(nplots))
-    pdf(outputFile, width=7.2*nrow, height=6*ncol, bg="white")
+    pdf(outputFile, width=7.2*ncol, height=6*nrow, bg="white")
     par(mfrow=c(nrow,ncol), mar=c(5.1, 5.1, 4.1, 2.1))
   } else {
     pdf(outputFile, width=7.2, height=6, bg="white")
