@@ -108,7 +108,7 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
 The [sciClone-meta](https://github.com/genome/sciclone-meta) repo contains all data and scripts used to create the figures in the manuscript. It also contains a small suite of tests that demonstrate the capabilities of sciClone and verify that it is installed correctly.
 
 ## Reference
-Manuscript currently in review:
+Manuscript published at [PLoS Computational Biology (doi:10.1371/journal.pcbi.1003665)](http://www.ploscompbiol.org/article/info%3Adoi%2F10.1371%2Fjournal.pcbi.1003665)
 
 SciClone: Inferring clonal architecture and tracking the spatial and temporal patterns of tumor evolution
 
