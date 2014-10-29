@@ -848,7 +848,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1){
+sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -906,15 +906,37 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
       cols = getClusterColors(maxCluster)
       #create the plot
-      plot(-100, -100, xlim=c(0,120), ylim=c(0,100), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
+      plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
            xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
-           bty="n", xaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
+           bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
+
+      xGridIncrement=20
+      yGridIncrement=20
+      if(xlim < 80){
+        xGridIncrement= 10
+      }      
+       if(xlim < 50){
+        xGridIncrement=5
+      } 
+
+      if(ylim < 80){
+        yGridIncrement=10
+      }
+      if(ylim < 50){
+        yGridIncrement=5
+      }
+      
 
       # vertical grid
-      abline(v=seq(0,100,20),col="grey50", lty=3, lwd=scale)
+      abline(v=seq(0,xlim,xGridIncrement),col="grey50", lty=3, lwd=scale)
+      axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=1)
+
       # horizontal grid
-      segments(rep(-10,5),seq(0,100,20),rep(105,5),seq(0,100,20), lty=3, lwd=scale, col="grey50")
-      axis(side=1,at=seq(0,100,20),labels=seq(0,100,20), cex.axis=scale)
+      numYGridLines=floor(ylim/yGridIncrement)
+
+      segments(rep(-10,numYGridLines),seq(0,ylim,yGridIncrement),rep(xlim*1.05,numYGridLines),seq(0,ylim,yGridIncrement), lty=3, lwd=scale, col="grey50")
+      axis(side=2,at=seq(0,ylim,yGridIncrement),labels=seq(0,ylim,yGridIncrement), cex.axis=scale)
+
 
 
       ## If we will be highlighting some points, exclude them from
