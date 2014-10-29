@@ -848,7 +848,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100){
+sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -858,10 +858,14 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
     nplots = ncol(combn(c(1:dimensions),2))
     nrow=round(sqrt(nplots))
     ncol=ceiling(sqrt(nplots))
-    pdf(outputFile, width=7.2*ncol, height=6*nrow, bg="white")
+    if(!is.null(outputFile)){
+        pdf(outputFile, width=7.2*ncol, height=6*nrow, bg="white")
+    }
     par(mfrow=c(nrow,ncol), mar=c(5.1, 5.1, 4.1, 2.1))
   } else {
-    pdf(outputFile, width=7.2, height=6, bg="white")
+    if(!is.null(outputFile)){
+      pdf(outputFile, width=7.2, height=6, bg="white")
+    }
   }
 
   numClusters = 0
@@ -905,8 +909,15 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
       }
 
       cols = getClusterColors(maxCluster)
+      
+      #sample name
+      title=paste(sampleNames[d1],"vs",sampleNames[d2])
+      if(!is.null(plot.title)){
+        title=plot.title
+      }
+
       #create the plot
-      plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=paste(sampleNames[d1],"vs",sampleNames[d2]),
+      plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=title,
            xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
            bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
 
@@ -1107,7 +1118,9 @@ sc.plot2d <- function(sco, outputFile, positionsToHighlight=NULL, highlightsHave
 
     }
   }
-  devoff = dev.off()
+  if(!is.null(outputFile)){
+    devoff = dev.off()
+  }
 }
 
 

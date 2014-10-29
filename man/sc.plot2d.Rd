@@ -16,7 +16,8 @@
     an scObject object created by the sciClone() function
   }
   \item{outputFile}{
-    path/name of pdf file of plots to create
+    path/name of pdf file that will contain the plots. Optional, but 
+    generally recommended, especially if you have more than two samples
   }
   \item{overlayClusters}{
     boolean argument to decide whether to overlay cluster designations
@@ -45,6 +46,16 @@
   \item{scale}{
     scale the spacing of the plots and fonts up or down to produce output
     suitable for presentations (try 1.0) or print (try 2.0).
+  }
+  \item{xmax}{
+    max value of the xaxis
+  }
+  \item{ymax}{
+    max value of the yaxis
+  }
+  \item{plot.title}{
+    Set a new title that will be applied to all plots. The default is to 
+    add a title with format "sampleNameA vs sampleNameB" to each plot
   }
 }  
 \details{  
