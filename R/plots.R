@@ -848,7 +848,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL){
+sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL, samplesToPlot=NULL){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -887,237 +887,256 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
 
 
 
-  ##create a 2d plot for each pairwise combination of samples
+
+  createPlot <- function(d1, d2){
+    vafs1 = getOneSampleVafs(vafs.merged, sampleNames[d1], numClusters);
+    vafs2 = getOneSampleVafs(vafs.merged, sampleNames[d2], numClusters);
+    ##get only cn2 points with adequate coverage
+    vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
+    vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
+    
+    if(!is.null(vafs.merged$cluster)) {
+      v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
+                                        # Remove any outliers--these will have cluster assignment 0
+      v.outlier <- v[v$cluster == 0,]
+      v <- v[v$cluster != 0,]
+    } else {
+      v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
+    }
+    
+    cols = getClusterColors(maxCluster)
+    
+                                        #sample name
+    title=paste(sampleNames[d1],"vs",sampleNames[d2])
+    if(!is.null(plot.title)){
+      title=plot.title
+    }
+    
+                                        #create the plot
+    plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=title,
+         xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
+         bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
+    
+    xGridIncrement=20
+    yGridIncrement=20
+    if(xlim < 80){
+      xGridIncrement= 10
+    }      
+    if(xlim < 50){
+      xGridIncrement=5
+    } 
+    
+    if(ylim < 80){
+      yGridIncrement=10
+    }
+    if(ylim < 50){
+      yGridIncrement=5
+    }
+    
+    
+    ## vertical grid
+    abline(v=seq(0,xlim,xGridIncrement),col="grey50", lty=3, lwd=scale)
+    axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=1)
+    
+    ## horizontal grid
+    numYGridLines=floor(ylim/yGridIncrement)
+    
+    segments(rep(-10,numYGridLines),seq(0,ylim,yGridIncrement),rep(xlim*1.05,numYGridLines),seq(0,ylim,yGridIncrement), lty=3, lwd=scale, col="grey50")
+    axis(side=2,at=seq(0,ylim,yGridIncrement),labels=seq(0,ylim,yGridIncrement), cex.axis=scale)
+    
+    
+    
+    ## If we will be highlighting some points, exclude them from
+    ## the general list of points to plot and plot them instead with
+    ## a different symbol/color (a black *)
+    v.no.highlight <- v
+    if(!(is.null(positionsToHighlight))) {
+      names(positionsToHighlight)=c("chr","st","name");
+      chr.start.v <- cbind(v[,"chr"], v[,"st"])
+      chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
+      v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
+      
+    }
+    
+    if(overlayErrorBars == TRUE) {
+      err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
+      err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
+    }
+    
+    if(!is.null(vafs.merged$cluster)) {
+      ## handle cluster 0 (outliers)
+      if(length(v.outlier[,1]) > 0){
+        points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3*scale)
+      }
+      
+      for(i in 1:numClusters){
+        indices <- v.no.highlight$cluster==non.empty.clusters[i]
+        
+        if(overlayClusters){
+          if(dim(v.no.highlight[indices,])[1] > 0) {
+            if(overlayErrorBars == TRUE) {
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+            } else {
+              points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, cex=scale)
+            }
+          }
+        } else { ##no overlay of clusters
+          if(dim(v.no.highlight[indices,])[1] > 0) {
+            if(overlayErrorBars == TRUE) {
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+            } else {
+              points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, cex=scale)
+            }
+          }
+        }
+      }
+    } else { #no clusters plotted
+      if(dim(v.no.highlight)[1] > 0) {
+        if(overlayErrorBars == TRUE) {
+          plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x", cex=scale, col=getClusterColors(1)[1])
+          plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y", cex=scale, col=getClusterColors(1)[1])
+        } else {
+          points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, cex=scale, col=getClusterColors(1)[1])
+        }
+      }
+    }
+    
+    ## Now plot the highlighted points so they are overlaid
+    if(!(is.null(positionsToHighlight))) {
+      ## Merge the data and the positions to highlight by chr (col 1)
+      ## and start (col 2)
+      addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+      
+      ## Plot the highlighted items.  NB:  we never overlay the
+      ## cluster on them, but expect this will be obvious from context
+      if(dim(addpts)[1] > 0) {
+        if(overlayErrorBars == TRUE) {
+          err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
+          err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
+          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
+          plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
+        } else {
+          points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2*scale)
+        }
+      }
+      
+    }
+
+    
+    if(!is.null(vafs.merged$cluster)) {
+      for(i in 1:numClusters){
+        if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
+          xc <- ellipse.metadata$SEMs.lb[i,d1] + ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2)
+          yc <- ellipse.metadata$SEMs.lb[i,d2] + ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2)
+          
+          ## ell <- my.ellipse(hlaxa = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), hlaxb = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2), xc = xc, yc = yc)
+          
+          draw.ellipse(xc, yc, a = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), b = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2))
+          
+        }
+        
+        if((!is.null(ellipse.metadata$std.dev.lb)) & (!is.null(ellipse.metadata$std.dev.ub))) {
+          xc <- ellipse.metadata$std.dev.lb[i,d1] + ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2)
+          yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
+          
+          ## Plot std dev as dashed line.
+          draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
+        }
+      }
+    }
+    ##plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
+    if(!is.null(vafs.merged$cluster)) {
+      ## Only include in the legend any clusters that are not empty.
+      legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters, cex=scale)
+      ##legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
+    }
+    
+    ## Add annotation for gene names, if requested
+    if(!(is.null(positionsToHighlight))){
+      addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
+      ## write.table(file="genes.txt", unique(addpts$gene_name), row.names=FALSE, col.names=FALSE, quote=FALSE)
+      if(dim(addpts)[1] > 0){
+        if(highlightsHaveNames){
+          xs <- list()
+          ys <- list()
+          labels <- list()
+          
+          nxt <- 1
+          for(i in 1:dim(addpts)[1]) {
+            par(xpd=NA)
+            cex <- 1
+            
+            if(addpts$vaf.1[i] < 1) {
+              ##text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
+              x <- addpts$vaf.1[i] - 8
+              y <- addpts$vaf.2[i]
+            } else if(addpts$vaf.2[i] < 1) {
+              ##text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
+              x <- addpts$vaf.1[i]
+              y <- addpts$vaf.2[i] - 5
+            } else {
+              ##text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
+              x <- addpts$vaf.1[i] + 4
+              y <- addpts$vaf.2[i] + 4
+            }
+            label <- as.character(addpts$name[i])
+            ##df <- data.frame(x=x, y=y)
+            ##grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
+            if(label != "") {
+              xs[[nxt]] <- x
+              ys[[nxt]] <- y
+              labels[[nxt]] <- label
+              nxt <- nxt + 1
+            }
+          }
+          
+          xs <- unlist(xs)
+          ys <- unlist(ys)
+          labels <- unlist(labels)
+          num.labels <- length(labels)
+          suppressPackageStartupMessages(library(TeachingDemos))
+          ## By using the min argument, ensure that the annotations
+          ## do not overlap the corresponding symbol.  NB:  we anticipate
+          ## this code will only be active for the interior points
+          if(num.labels > 0){
+            xs <- spread.labs(xs, mindiff=4, min=xs)
+            ys <- spread.labs(ys, mindiff=4, min=ys)
+            for(i in 1:num.labels) {
+              ##grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
+              text(x=xs[i], y=ys[i], label=labels[i], cex=cex)
+            }
+          }
+        }
+      }
+    } # End add gene annotations
+    
+  }
+
+  ##create a 2d plots 
+  count=0;
   for(d1 in 1:(dimensions-1)){
     for(d2 in d1:dimensions){
       if(d1==d2){
         next
       }
-      vafs1 = getOneSampleVafs(vafs.merged, sampleNames[d1], numClusters);
-      vafs2 = getOneSampleVafs(vafs.merged, sampleNames[d2], numClusters);
-      ##get only cn2 points with adequate coverage
-      vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
-      vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
-
-      if(!is.null(vafs.merged$cluster)) {
-        v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
-        # Remove any outliers--these will have cluster assignment 0
-        v.outlier <- v[v$cluster == 0,]
-        v <- v[v$cluster != 0,]
-      } else {
-        v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
-      }
-
-      cols = getClusterColors(maxCluster)
-      
-      #sample name
-      title=paste(sampleNames[d1],"vs",sampleNames[d2])
-      if(!is.null(plot.title)){
-        title=plot.title
-      }
-
-      #create the plot
-      plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=title,
-           xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
-           bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
-
-      xGridIncrement=20
-      yGridIncrement=20
-      if(xlim < 80){
-        xGridIncrement= 10
-      }      
-       if(xlim < 50){
-        xGridIncrement=5
-      } 
-
-      if(ylim < 80){
-        yGridIncrement=10
-      }
-      if(ylim < 50){
-        yGridIncrement=5
-      }
-      
-
-      # vertical grid
-      abline(v=seq(0,xlim,xGridIncrement),col="grey50", lty=3, lwd=scale)
-      axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=1)
-
-      # horizontal grid
-      numYGridLines=floor(ylim/yGridIncrement)
-
-      segments(rep(-10,numYGridLines),seq(0,ylim,yGridIncrement),rep(xlim*1.05,numYGridLines),seq(0,ylim,yGridIncrement), lty=3, lwd=scale, col="grey50")
-      axis(side=2,at=seq(0,ylim,yGridIncrement),labels=seq(0,ylim,yGridIncrement), cex.axis=scale)
-
-
-
-      ## If we will be highlighting some points, exclude them from
-      ## the general list of points to plot and plot them instead with
-      ## a different symbol/color (a black *)
-      v.no.highlight <- v
-      if(!(is.null(positionsToHighlight))) {
-        names(positionsToHighlight)=c("chr","st","name");
-        chr.start.v <- cbind(v[,"chr"], v[,"st"])
-        chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
-        v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
-
-      }
-
-      if(overlayErrorBars == TRUE) {
-        err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
-        err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
-      }
-
-      if(!is.null(vafs.merged$cluster)) {
-        ## handle cluster 0 (outliers)
-        if(length(v.outlier[,1]) > 0){
-          points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3*scale)
+      if(is.null(samplesToPlot)){ ##use each pairwise combination of samples
+        createPlot(d1,d2)
+        count = count + 1;
+      } else { ##just plot the specified samples
+        if( (sampleNames[d1] %in% samplesToPlot) & (sampleNames[d2] %in% samplesToPlot)){
+          createPlot(d1,d2)
+          count = count + 1;
         }
-
-        for(i in 1:numClusters){
-          indices <- v.no.highlight$cluster==non.empty.clusters[i]
-
-          if(overlayClusters){
-            if(dim(v.no.highlight[indices,])[1] > 0) {
-              if(overlayErrorBars == TRUE) {
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
-              } else {
-                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, col=cols[non.empty.clusters[i]], pch=i, cex=scale)
-              }
-            }
-          } else { ##no overlay of clusters
-            if(dim(v.no.highlight[indices,])[1] > 0) {
-              if(overlayErrorBars == TRUE) {
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
-                plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
-              } else {
-                points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, cex=scale)
-              }
-            }
-          }
-        }
-      } else { #no clusters plotted
-        if(dim(v.no.highlight)[1] > 0) {
-          if(overlayErrorBars == TRUE) {
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x", cex=scale, col=getClusterColors(1)[1])
-            plotCI(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y", cex=scale, col=getClusterColors(1)[1])
-          } else {
-            points(v.no.highlight$vaf.1, v.no.highlight$vaf.2, pch=18, cex=scale, col=getClusterColors(1)[1])
-          }
-        }
-      }
-
-      # Now plot the highlighted points so they are overlaid
-      if(!(is.null(positionsToHighlight))) {
-        # Merge the data and the positions to highlight by chr (col 1)
-        # and start (col 2)
-        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-
-        # Plot the highlighted items.  NB:  we never overlay the
-        # cluster on them, but expect this will be obvious from context
-        if(dim(addpts)[1] > 0) {
-          if(overlayErrorBars == TRUE) {
-            err.bars.1 <- compute.binomial.error.bars(addpts$var.1, addpts$depth.1) * 100
-            err.bars.2 <- compute.binomial.error.bars(addpts$var.2, addpts$depth.2) * 100
-            plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.1$lb, ui=err.bars.1$ub, add=TRUE, err="x")
-            plotCI(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2, li=err.bars.2$lb, ui=err.bars.2$ub, add=TRUE, err="y")
-          } else {
-            points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2*scale)
-          }
-        }
-
-      }
-
-
-      if(!is.null(vafs.merged$cluster)) {
-        for(i in 1:numClusters){
-          if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
-            xc <- ellipse.metadata$SEMs.lb[i,d1] + ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2)
-            yc <- ellipse.metadata$SEMs.lb[i,d2] + ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2)
-
-            # ell <- my.ellipse(hlaxa = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), hlaxb = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2), xc = xc, yc = yc)
-
-            draw.ellipse(xc, yc, a = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), b = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2))
-
-          }
-
-          if((!is.null(ellipse.metadata$std.dev.lb)) & (!is.null(ellipse.metadata$std.dev.ub))) {
-            xc <- ellipse.metadata$std.dev.lb[i,d1] + ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2)
-            yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
-
-            # Plot std dev as dashed line.
-            draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
-          }
-        }
-      }
-      #plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
-      if(!is.null(vafs.merged$cluster)) {
-        # Only include in the legend any clusters that are not empty.
-        legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters, cex=scale)
-        #legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
-      }
-
-      # Add annotation for gene names, if requested
-      if(!(is.null(positionsToHighlight))){
-        addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-        # write.table(file="genes.txt", unique(addpts$gene_name), row.names=FALSE, col.names=FALSE, quote=FALSE)
-        if(dim(addpts)[1] > 0){
-          if(highlightsHaveNames){
-            xs <- list()
-            ys <- list()
-            labels <- list()
-
-            nxt <- 1
-            for(i in 1:dim(addpts)[1]) {
-              par(xpd=NA)
-              cex <- 1
-
-              if(addpts$vaf.1[i] < 1) {
-                #text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
-                x <- addpts$vaf.1[i] - 8
-                y <- addpts$vaf.2[i]
-              } else if(addpts$vaf.2[i] < 1) {
-                #text(addpts$vaf.1[i],addpts$vaf.2[i] - 5,labels=addpts$gene_name[i],cex=cex)
-                x <- addpts$vaf.1[i]
-                y <- addpts$vaf.2[i] - 5
-              } else {
-                #text(addpts$vaf.1[i] + 4,addpts$vaf.2[i] + 4,labels=addpts$gene_name[i],cex=cex)
-                x <- addpts$vaf.1[i] + 4
-                y <- addpts$vaf.2[i] + 4
-              }
-              label <- as.character(addpts$name[i])
-              #df <- data.frame(x=x, y=y)
-              #grid.text(x=x,y=y,label=label,default.units="native", gp=gpar(fontsize=8))
-              if(label != "") {
-                xs[[nxt]] <- x
-                ys[[nxt]] <- y
-                labels[[nxt]] <- label
-                nxt <- nxt + 1
-              }
-            }
-
-            xs <- unlist(xs)
-            ys <- unlist(ys)
-            labels <- unlist(labels)
-            num.labels <- length(labels)
-            suppressPackageStartupMessages(library(TeachingDemos))
-            # By using the min argument, ensure that the annotations
-            # do not overlap the corresponding symbol.  NB:  we anticipate
-            # this code will only be active for the interior points
-            if(num.labels > 0){
-              xs <- spread.labs(xs, mindiff=4, min=xs)
-              ys <- spread.labs(ys, mindiff=4, min=ys)
-              for(i in 1:num.labels) {
-                #grid.text(x=xs[i],y=ys[i],label=labels[i],default.units="native", gp=gpar(fontsize=8))
-                text(x=xs[i], y=ys[i], label=labels[i], cex=cex)
-              }
-            }
-          }
-        }
-      } # End add gene annotations
-
+      }        
     }
   }
+  if(count < 1){
+    print ("WARNING: no pair of samples matched the samplesToPlot argument. Nothing plotted");
+  }
+  
+  
   if(!is.null(outputFile)){
     devoff = dev.off()
   }
