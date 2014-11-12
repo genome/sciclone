@@ -2,7 +2,7 @@ Source: r-tgi-sciclone
 Section: misc
 Priority: optional
 Maintainer: Chris Miller <cmiller@genome.wustl.edu>
-Build-Depends: debhelper (>= 7.4), r-base-dev (>= 2.10.1-2), cdbs, r-tgi-bmm (>= 0.3-1), r-cran-mkmisc, r-cran-normt3 (>= 1.0), r-cran-rgl (>= 0.8), r-cran-teachingdemos (>= 2.4), r-bioc-iranges, r-cran-ggplot2, r-cran-plotrix
+Build-Depends: debhelper (>= 7.4), r-base-dev (>= 2.10.1-2), cdbs, r-tgi-bmm (>= 0.3-1), r-cran-mkmisc, r-cran-normt3 (>= 1.0.2-3), r-cran-rgl (>= 0.8), r-cran-teachingdemos (>= 2.4), r-bioc-iranges, r-cran-ggplot2, r-cran-plotrix
  
 Package: r-tgi-sciclone
 Architecture: all
