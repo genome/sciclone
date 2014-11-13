@@ -2,7 +2,7 @@ r-tgi-sciclone (1.0.7-2) lucid; urgency=low
 
   * update normt3 version required.
 
- -- Avinash Ramu  <aramu@genome.wustl.edu>  Wed, 12 Nov 2014 13:26:39 -0500
+ -- Avinash Ramu <aramu@genome.wustl.edu>  Wed, 12 Nov 2014 13:26:39 -0500
 
 r-tgi-sciclone (1.0.7-1) lucid; urgency=low
 
