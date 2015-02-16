@@ -80,7 +80,7 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
     #3d clustering using three samples:
     sc = sciClone(vafs=list(v1,v2,v3),
                   copyNumberCalls=list(cn1,cn2,cn3),
-                  sampleNames=names[1:2],
+                  sampleNames=names[1:3],
                    regionsToExclude=regions)
     #create output
     writeClusterTable(sc, "results/clusters2")
