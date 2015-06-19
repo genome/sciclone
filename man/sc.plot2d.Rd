@@ -9,7 +9,11 @@
 \usage{sc.plot2d(sco, outputFile, positionsToHighlight=NULL,
                  highlightsHaveNames=FALSE, overlayClusters=TRUE,
                  overlayErrorBars=FALSE, ellipse.metadata = list(),
-                 singlePage=FALSE, scale=1)
+                 singlePage=FALSE, scale=1, xlim=100, ylim=100,
+                 plot.title="Plot Title", clusterLegend=TRUE,
+                 flipSamples=FALSE, xlab="Tumor 1 VAF",
+                 ylab="Tumor 2 VAF", colors=c("red","blue","green"))
+
 }
 \arguments{
   \item{sco}{
@@ -47,16 +51,31 @@
     scale the spacing of the plots and fonts up or down to produce output
     suitable for presentations (try 1.0) or print (try 2.0).
   }
-  \item{xmax}{
+  \item{xlim}{
     max value of the xaxis
   }
-  \item{ymax}{
+  \item{ylim}{
     max value of the yaxis
   }
   \item{plot.title}{
     Set a new title that will be applied to all plots. The default is to 
     add a title with format "sampleNameA vs sampleNameB" to each plot
   }
+  \item{xlab}{
+    label for the x axis
+  } 
+  \item{ylab}{
+    label for the y axis
+  }
+  \item{colors}{
+    provide your own list of colors to use for the clusters
+  }
+  \item{flipSamples}{
+    flip the samples being plotted on each axis (x moves to y and vice-versa)
+  }
+ \item{clusterLegend}{
+   add a legend showing cluster numbers (TRUE/FALSE)
+ } 
 }  
 \details{  
   Creates a scatter plot for each pairing of samples, with clusters

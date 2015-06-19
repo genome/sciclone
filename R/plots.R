@@ -848,7 +848,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL, samplesToPlot=NULL){
+sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL, samplesToPlot=NULL, clusterLegend=TRUE, flipSamples=FALSE, xlab=NULL, ylab=NULL, colors=NULL){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -897,24 +897,36 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     
     if(!is.null(vafs.merged$cluster)) {
       v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
-                                        # Remove any outliers--these will have cluster assignment 0
+      ## Remove any outliers--these will have cluster assignment 0
       v.outlier <- v[v$cluster == 0,]
       v <- v[v$cluster != 0,]
     } else {
       v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
     }
     
-    cols = getClusterColors(maxCluster)
+    cols=colors
+    if(!is.null(colors)){
+      cols = getClusterColors(maxCluster)
+    }
     
-                                        #sample name
+    ##sample name
     title=paste(sampleNames[d1],"vs",sampleNames[d2])
     if(!is.null(plot.title)){
       title=plot.title
     }
     
-                                        #create the plot
+    ##create the plot
+    xlabel = paste(sampleNames[d1],"VAF                   ")
+    ylabel = paste(sampleNames[d2],"VAF")
+    if(!(is.null(xlab))){
+      xlabel = xlab
+    }
+    if(!(is.null(ylab))){
+      ylabel = ylab
+    }
+    
     plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=title,
-         xlab=paste(sampleNames[d1],"VAF                   "), ylab=paste(sampleNames[d2],"VAF"),
+         xlab=xlabel, ylab=ylabel,
          bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
     
     xGridIncrement=20
@@ -936,7 +948,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     
     ## vertical grid
     abline(v=seq(0,xlim,xGridIncrement),col="grey50", lty=3, lwd=scale)
-    axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=1)
+    axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=scale)
     
     ## horizontal grid
     numYGridLines=floor(ylim/yGridIncrement)
@@ -1049,7 +1061,9 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     ##plot(-100, -100, xlim=c(0,100), ylim=c(0,100),main="Clusters")
     if(!is.null(vafs.merged$cluster)) {
       ## Only include in the legend any clusters that are not empty.
-      legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters, cex=scale)
+      if(clusterLegend==TRUE){
+        legend("topright", legend=non.empty.clusters, col=cols[non.empty.clusters], title="Clusters", pch=non.empty.clusters, cex=scale, bg="white")
+      }
       ##legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
     }
     
@@ -1114,7 +1128,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     
   }
 
-  ##create a 2d plots 
+  ##create 2d plots
   count=0;
   for(d1 in 1:(dimensions-1)){
     for(d2 in d1:dimensions){
@@ -1122,12 +1136,21 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
         next
       }
       if(is.null(samplesToPlot)){ ##use each pairwise combination of samples
-        createPlot(d1,d2)
+        if(flipSamples == TRUE){
+          createPlot(d2,d1)
+        } else {
+          createPlot(d1,d2)
+        } 
         count = count + 1;
       } else { ##just plot the specified samples
         if( (sampleNames[d1] %in% samplesToPlot) & (sampleNames[d2] %in% samplesToPlot)){
-          createPlot(d1,d2)
-          count = count + 1;
+          if(flipSamples == TRUE){
+            createPlot(d2,d1)
+          } else {
+            createPlot(d1,d2)
+          }
+          
+        count = count + 1;
         }
       }        
     }
