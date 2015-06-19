@@ -1,6 +1,6 @@
 Package: sciClone
 Title: Detect subclones from genomic sequence data
-Version: 1.0.7
+Version: 1.1.0
 Author: Chris Miller, Brian White, Nathan Dees
 Description: Identifies clonal entities from sequenced populations of cells, using read count information.
 Maintainer: Chris Miller <cmiller@genome.wustl.edu>
@@ -8,4 +8,4 @@ LazyLoad: yes
 License: Apache License 2.0 | file LICENSE
 Depends: IRanges, bmm, rgl, RColorBrewer, ggplot2, grid, plotrix,
         methods, NORMT3, MKmisc, TeachingDemos
-Packaged: 2014-10-29 12:34:09 PM; cmiller
+Packaged: 2015-06-19 11:50:09 AM; cmiller
