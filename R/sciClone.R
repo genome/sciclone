@@ -356,6 +356,12 @@ addCnToVafs <- function(vafs, cncalls, copyNumberMargins){
       for(i in 1:length(vars)){
         vpos = which(vafs$chr==chr & vafs$st==start(vars[matches[which(matches[,1]==i),1]]))
         if(identical(vpos,integer(0))) { next }
+        if(length(matches[which(matches[,1]==i),2])>1){
+          print("ERROR: input site matches two copy number regions (this should be impossible):")
+          print(cnsegs[matches[which(matches[,1]==i),2]])
+          print("Is your CN file in one-based format?")
+          stop("unable to continue")
+        }
         cpos = which(cncalls[,1] == chr & cncalls[,2]==start(cnsegs[matches[which(matches[,1]==i),2]]))
         ##set the value
         vafs[vpos,]$cn = cncalls[cpos,4]
