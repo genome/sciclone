@@ -864,7 +864,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     par(mfrow=c(nrow,ncol), mar=c(5.1, 5.1, 4.1, 2.1))
   } else {
     if(!is.null(outputFile)){
-      pdf(outputFile, width=7.2, height=6, bg="white")
+      pdf(outputFile, width=6.8, height=6, bg="white")
     }
   }
 
@@ -905,10 +905,9 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     }
     
     cols=colors
-    if(!is.null(colors)){
+    if(is.null(colors)){
       cols = getClusterColors(maxCluster)
     }
-    
     ##sample name
     title=paste(sampleNames[d1],"vs",sampleNames[d2])
     if(!is.null(plot.title)){
