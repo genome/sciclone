@@ -107,6 +107,8 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
 
 - Input formats described in more detail in the R documentation (see `?sciClone`)
 
+- Many questions regarding sciClone usage have been asked and answered on Biostar: https://www.biostars.org/t/sciclone/
+
 ## Accessory Scripts and Data
 The [sciClone-meta](https://github.com/genome/sciclone-meta) repo contains all data and scripts used to create the figures in the manuscript. It also contains a small suite of tests that demonstrate the capabilities of sciClone and verify that it is installed correctly.
 
