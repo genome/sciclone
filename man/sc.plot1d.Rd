@@ -6,7 +6,7 @@
 \description{
   Creates a pdf with one plot for each sample.
 }
-\usage{sc.plot1d(sco, outputFile, cnToPlot=c(1,2,3,4),
+\usage{sc.plot1d(sco, outputFile=NULL, cnToPlot=c(1,2,3,4),
                 showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                 positionsToHighlight=NULL, highlightsHaveNames=FALSE,
                 overlayClusters=TRUE, overlayIndividualModels=TRUE,
@@ -40,10 +40,10 @@
   }
   \item{highlightsHaveNames}{
     boolean argument - if (TRUE), the tool will look for a third column
-    in the file specified by positionsToHighlight and will number these 
+    in the file specified by positionsToHighlight and will number these
     points, then create a legend with the names. Also sets cnToPlot=2
     to make room for the legend.
-  }  
+  }
   % \item{minimumLabelledPeakHeight}{
   %   minimum density at which to label a peak in the output kernel
   %   density plot
@@ -70,8 +70,8 @@
   }
   \item{highlightsOnHistogram}{
     show higlighted points on histogram
-  }  
-}  
+  }
+}
 \value{
   does not return anything, creates pdf file
 }
