@@ -24,7 +24,6 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
 
 
         git clone git@github.com:genome/sciclone.git
-        cd sciclone/
         R CMD build sciClone
         R CMD INSTALL sciClone_1.0.7.tar.gz
 
@@ -32,7 +31,7 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
     library(sciClone)
 
     #read in vaf data from three related tumors
-    #format is 5 column, tab delimited: 
+    #format is 5 column, tab delimited:
     #chr, pos, ref_reads, var_reads, vaf
 
     v1 = read.table("data/vafs.tumor1.dat",header=T);
