@@ -6,7 +6,7 @@
 \description{
   Creates a pdf with one plot for each sample.
 }
-\usage{sc.plot1d(sco, outputFile, cnToPlot=c(1,2,3,4),
+\usage{sc.plot1d(sco, outputFile=NULL, cnToPlot=c(1,2,3,4),
                 showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                 positionsToHighlight=NULL, highlightsHaveNames=FALSE,
                 overlayClusters=TRUE, overlayIndividualModels=TRUE,
