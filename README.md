@@ -24,7 +24,6 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
 
 
         git clone git@github.com:genome/sciclone.git
-        cd sciclone/
         R CMD build sciClone
         R CMD INSTALL sciClone_1.0.7.tar.gz
 
