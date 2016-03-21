@@ -7,7 +7,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      cnCallsAreLog2=FALSE,
                      useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
-                     doClusteringAlongMargins=TRUE, plotIntermediateResults=0, doPurityScaling=FALSE){
+                     doClusteringAlongMargins=TRUE, plotIntermediateResults=0){
 
   if(verbose){print("checking input data...")}
 
@@ -40,8 +40,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
     copyNumberCalls = vector("list",dimensions)
   }
 
-  #implemented, but not reliable yet, so always skip these
-  #doPurityScaling=FALSE
+  #roughly implemented, but not reliable yet, so always turned off at present
+  doPurityScaling=FALSE
   purities=NULL;
 
 
@@ -161,7 +161,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   #convert vafs to be between 0 and 1
   vafs.matrix = vafs.matrix/100
 
-  ## purity correction
+  
+  ## purity correction - always turned off until it can made more reliable.
   if(is.null(purities)){
     if(doPurityScaling){
       purities=c()
