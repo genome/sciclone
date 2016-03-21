@@ -848,7 +848,7 @@ compute.binomial.error.bars <- function(successes, total.trials){
 ##---------------------------------------------------------------------------------
 ## Create two dimensional plot with scatter annotated with clustering result
 ##
-sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL, samplesToPlot=NULL, clusterLegend=TRUE, flipSamples=FALSE, xlab=NULL, ylab=NULL, colors=NULL){
+sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE, overlayErrorBars=FALSE, ellipse.metadata = list(), singlePage=FALSE, scale=1, xlim=100, ylim=100, plot.title=NULL, samplesToPlot=NULL, clusterLegend=TRUE, flipSamples=FALSE, xlab=NULL, ylab=NULL, colors=NULL, plotWidth=7.2, plotHeight=6){
 
   vafs.merged = sco@vafs.merged
   sampleNames = sco@sampleNames
@@ -859,12 +859,12 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     nrow=round(sqrt(nplots))
     ncol=ceiling(sqrt(nplots))
     if(!is.null(outputFile)){
-        pdf(outputFile, width=7.2*ncol, height=6*nrow, bg="white")
+        pdf(outputFile, width=plotWidth*ncol, height=plotHeight*nrow, bg="white")
     }
     par(mfrow=c(nrow,ncol), mar=c(5.1, 5.1, 4.1, 2.1))
   } else {
     if(!is.null(outputFile)){
-      pdf(outputFile, width=6.8, height=6, bg="white")
+      pdf(outputFile, width=plotWidth, height=plotHeight, bg="white")
     }
   }
 
@@ -995,10 +995,10 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
         } else { ##no overlay of clusters
           if(dim(v.no.highlight[indices,])[1] > 0) {
             if(overlayErrorBars == TRUE) {
-              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
-              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=18, li=err.bars.1$lb[indices], ui=err.bars.1$ub[indices], add=TRUE, err="x")
+              plotCI(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=18, li=err.bars.2$lb[indices], ui=err.bars.2$ub[indices], add=TRUE, err="y")
             } else {
-              points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=14, cex=scale)
+              points(v.no.highlight[indices,]$vaf.1, v.no.highlight[indices,]$vaf.2, pch=18, cex=scale,col=getClusterColors(1)[1])
             }
           }
         }
