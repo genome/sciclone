@@ -1,7 +1,7 @@
 #---------------------------------------------------------------------------------
 ## Create the one dimensional plot with kde and scatter
 ##
-sc.plot1d <- function(sco, outputFile,
+sc.plot1d <- function(sco, outputFile=NULL,
                    cnToPlot=c(1,2,3,4), showCopyNumberScatterPlots=TRUE, highlightSexChrs=TRUE,
                    positionsToHighlight=NULL, highlightsHaveNames=FALSE, overlayClusters=TRUE,
                    overlayIndividualModels=TRUE, showHistogram=FALSE,
@@ -19,7 +19,7 @@ sc.plot1d <- function(sco, outputFile,
   }
 
   #leaving this peak-labeling code in for now, but turn it off
-  #until it's improved 
+  #until it's improved
   minimumLabelledPeakHeight=999
   onlyLabelHighestPeak=TRUE
 
@@ -32,7 +32,7 @@ sc.plot1d <- function(sco, outputFile,
     addpts = merge(vafs.merged, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
     if(showCopyNumberScatterPlots & ( length(cnToPlot) < 2 ) & highlightsHaveNames) {
       add.legend <- TRUE
-      
+
     }
   }
   #sanity checks
@@ -73,12 +73,9 @@ sc.plot1d <- function(sco, outputFile,
   }
 
 
-  # 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly
-  # if we have fewer rows.
-  #pdf(file=outputFile, width=3.3, height=7.5, bg="white");
-  height <- 8.5 * (num.rows/5)
- width <- 3.7
-
+  ## 3.3 x 7.5 is a good dimensionality for 5 rows.  Scale accordingly  
+  ## if we have fewer rows.
+    
   spacing=1.0
   scale=1
   if(num.rows == 2){
@@ -90,8 +87,12 @@ sc.plot1d <- function(sco, outputFile,
     scale=1
   }
 
-  pdf(file=outputFile, width=width, height=height, bg="white");
-
+  height <- 8.5 * (num.rows/5)
+  width <- 3.7
+  if(!is.null(outputFile)) {
+    pdf(file=outputFile, width=width, height=height, bg="white");
+  }
+  
   numClusters = 0
   if(!is.null(clust)) {
     numClusters = max(clust$cluster.assignments)
@@ -198,7 +199,7 @@ sc.plot1d <- function(sco, outputFile,
               vaf <- addpts$vaf[i]
               nearest.indx <- which(unlist(lapply(clust$fit.x, function(x) abs(x-vaf))) == min(abs(clust$fit.x - vaf)))[1]
               vaf.y <- clust$fit.y[d,nearest.indx]/maxFitDensity
-              
+
               label <- as.character(addpts$name[i])
               cex <- 1
               text(x=vaf, y=vaf.y, label="*", cex=cex)
@@ -279,8 +280,8 @@ sc.plot1d <- function(sco, outputFile,
 
         drawScatterPlot(v, highlightSexChrs, positionsToHighlight, colors, i, maxDepth, highlightsHaveNames, overlayClusters, scale,  textScale, axisPosScale, labelOnPlot=FALSE, highlightCnPoints=highlightCnPoints)
         axis(side=1,at=c(0,20,40,60,80,100), labels=c(0,20,40,60,80,100), cex.axis=(0.6/scale)*textScale, lwd=0.5, lwd.ticks=0.5, padj=((-scale*5)+5-1.4)*(1/textScale), tck=-0.05);
-        
-        
+
+
         if(length(cnToPlot) < 2 & highlightsHaveNames){
           addHighlightLegend(v, positionsToHighlight,scale)
         } else {
@@ -293,7 +294,9 @@ sc.plot1d <- function(sco, outputFile,
     }
   }
   ##close the pdf
-  devoff <- dev.off();
+  if(!is.null(outputFile)) {
+    devoff <- dev.off();
+  }
 }
 
 
@@ -318,7 +321,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
 
     data.sex=NULL
     data.cn=NULL
-    
+
     if(highlightSexChrs){
       ##plot sex chromsomes with different shape
       data.sex = data[(data$chr == "X" | data$chr == "Y"),]
@@ -343,7 +346,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
     if(!(is.null(data.cn))){
       ##plot cn events with different shape
       points(data.cn$vaf, data.cn$depth, type="p", pch=15, cex=cex+0.5, col="black");
-      points(data.cn$vaf, data.cn$depth, type="p", pch=15, cex=cex, col="yellow");    
+      points(data.cn$vaf, data.cn$depth, type="p", pch=15, cex=cex, col="yellow");
     }
   }
 
@@ -363,7 +366,7 @@ drawScatterPlot <- function(data, highlightSexChrs, positionsToHighlight, colors
       for(i in 1:numClusters){
         p = data[data$cluster == i,]
         addPoints(p, cols[i], highlightSexChrs, cex=cex.points, highlightCnPoints=highlightCnPoints)
-      }        
+      }
     } else { ##just use the normal color
       addPoints(data[data$chr != "CN",], ptcolor, highlightSexChrs, cex=cex.points, highlightCnPoints=highlightCnPoints)
       ##highlight CN-derived points
@@ -509,7 +512,7 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
   # a hack to quiet R CMD check and does not affect the ggplot call.
   ymin <- NULL
   ymax <- NULL
-  
+
   tmp.file <- tempfile("outputFile.tmp")
   pdf(file=tmp.file, width=7.2, height=6, bg="white")
 
@@ -894,7 +897,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     ##get only cn2 points with adequate coverage
     vafs1 = vafs1[which(vafs1$cleancn==2 & vafs1$adequateDepth==1),]
     vafs2 = vafs2[which(vafs2$cleancn==2 & vafs2$adequateDepth==1),]
-    
+
     if(!is.null(vafs.merged$cluster)) {
       v = merge(vafs1,vafs2,by.x=c("chr","st","cluster"), by.y=c("chr","st","cluster"),suffixes=c(".1",".2"))
       ## Remove any outliers--these will have cluster assignment 0
@@ -903,7 +906,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     } else {
       v = merge(vafs1,vafs2,by.x=c("chr","st"), by.y=c("chr","st"),suffixes=c(".1",".2"))
     }
-    
+
     cols=colors
     if(is.null(colors)){
       cols = getClusterColors(maxCluster)
@@ -913,7 +916,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     if(!is.null(plot.title)){
       title=plot.title
     }
-    
+
     ##create the plot
     xlabel = paste(sampleNames[d1],"VAF                   ")
     ylabel = paste(sampleNames[d2],"VAF")
@@ -923,40 +926,40 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
     if(!(is.null(ylab))){
       ylabel = ylab
     }
-    
+
     plot(-100, -100, xlim=c(0,xlim*1.2), ylim=c(0,ylim), main=title,
          xlab=xlabel, ylab=ylabel,
          bty="n", xaxt="n", yaxt="n", cex.lab=scale, cex.main=scale, cex.axis=scale)
-    
+
     xGridIncrement=20
     yGridIncrement=20
     if(xlim < 80){
       xGridIncrement= 10
-    }      
+    }
     if(xlim < 50){
       xGridIncrement=5
-    } 
-    
+    }
+
     if(ylim < 80){
       yGridIncrement=10
     }
     if(ylim < 50){
       yGridIncrement=5
     }
-    
-    
+
+
     ## vertical grid
     abline(v=seq(0,xlim,xGridIncrement),col="grey50", lty=3, lwd=scale)
     axis(side=1,at=seq(0,xlim,xGridIncrement),labels=seq(0,xlim,xGridIncrement), cex.axis=scale)
-    
+
     ## horizontal grid
     numYGridLines=floor(ylim/yGridIncrement)
-    
+
     segments(rep(-10,numYGridLines),seq(0,ylim,yGridIncrement),rep(xlim*1.05,numYGridLines),seq(0,ylim,yGridIncrement), lty=3, lwd=scale, col="grey50")
     axis(side=2,at=seq(0,ylim,yGridIncrement),labels=seq(0,ylim,yGridIncrement), cex.axis=scale)
-    
-    
-    
+
+
+
     ## If we will be highlighting some points, exclude them from
     ## the general list of points to plot and plot them instead with
     ## a different symbol/color (a black *)
@@ -966,23 +969,23 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
       chr.start.v <- cbind(v[,"chr"], v[,"st"])
       chr.start.highlight <- cbind(positionsToHighlight[,1], positionsToHighlight[,2])
       v.no.highlight <- v[!(apply(chr.start.v, 1, paste, collapse="$$") %in% apply(chr.start.highlight, 1, paste, collapse="$$")),]
-      
+
     }
-    
+
     if(overlayErrorBars == TRUE) {
       err.bars.1 <- compute.binomial.error.bars(v.no.highlight$var.1, v.no.highlight$depth.1) * 100
       err.bars.2 <- compute.binomial.error.bars(v.no.highlight$var.2, v.no.highlight$depth.2) * 100
     }
-    
+
     if(!is.null(vafs.merged$cluster)) {
       ## handle cluster 0 (outliers)
       if(length(v.outlier[,1]) > 0){
         points(v.outlier$vaf.1, v.outlier$vaf.2, col=rgb(0,0,0,0.5), pch=".", cex=3*scale)
       }
-      
+
       for(i in 1:numClusters){
         indices <- v.no.highlight$cluster==non.empty.clusters[i]
-        
+
         if(overlayClusters){
           if(dim(v.no.highlight[indices,])[1] > 0) {
             if(overlayErrorBars == TRUE) {
@@ -1013,13 +1016,13 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
         }
       }
     }
-    
+
     ## Now plot the highlighted points so they are overlaid
     if(!(is.null(positionsToHighlight))) {
       ## Merge the data and the positions to highlight by chr (col 1)
       ## and start (col 2)
       addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
-      
+
       ## Plot the highlighted items.  NB:  we never overlay the
       ## cluster on them, but expect this will be obvious from context
       if(dim(addpts)[1] > 0) {
@@ -1032,26 +1035,26 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
           points(addpts$vaf.1, addpts$vaf.2, pch="*", col="black", cex=2*scale)
         }
       }
-      
+
     }
 
-    
+
     if(!is.null(vafs.merged$cluster)) {
       for(i in 1:numClusters){
         if((!is.null(ellipse.metadata$SEMs.lb)) & (!is.null(ellipse.metadata$SEMs.ub))) {
           xc <- ellipse.metadata$SEMs.lb[i,d1] + ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2)
           yc <- ellipse.metadata$SEMs.lb[i,d2] + ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2)
-          
+
           ## ell <- my.ellipse(hlaxa = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), hlaxb = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2), xc = xc, yc = yc)
-          
+
           draw.ellipse(xc, yc, a = ((ellipse.metadata$SEMs.ub[i,d1] - ellipse.metadata$SEMs.lb[i,d1])/2), b = ((ellipse.metadata$SEMs.ub[i,d2] - ellipse.metadata$SEMs.lb[i,d2])/2))
-          
+
         }
-        
+
         if((!is.null(ellipse.metadata$std.dev.lb)) & (!is.null(ellipse.metadata$std.dev.ub))) {
           xc <- ellipse.metadata$std.dev.lb[i,d1] + ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2)
           yc <- ellipse.metadata$std.dev.lb[i,d2] + ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2)
-          
+
           ## Plot std dev as dashed line.
           draw.ellipse(xc, yc, a = ((ellipse.metadata$std.dev.ub[i,d1] - ellipse.metadata$std.dev.lb[i,d1])/2), b = ((ellipse.metadata$std.dev.ub[i,d2] - ellipse.metadata$std.dev.lb[i,d2])/2), lty=2)
         }
@@ -1065,7 +1068,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
       }
       ##legend("topright", legend=1:numClusters, col=cols[1:numClusters], title="Clusters", pch=1:numClusters)
     }
-    
+
     ## Add annotation for gene names, if requested
     if(!(is.null(positionsToHighlight))){
       addpts = merge(v, positionsToHighlight, by.x=c("chr","st"), by.y = c("chr","st"))
@@ -1075,12 +1078,12 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
           xs <- list()
           ys <- list()
           labels <- list()
-          
+
           nxt <- 1
           for(i in 1:dim(addpts)[1]) {
             par(xpd=NA)
             cex <- 1
-            
+
             if(addpts$vaf.1[i] < 1) {
               ##text(addpts$vaf.1[i] - 8,addpts$vaf.2[i],labels=addpts$gene_name[i],cex=cex)
               x <- addpts$vaf.1[i] - 8
@@ -1104,7 +1107,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
               nxt <- nxt + 1
             }
           }
-          
+
           xs <- unlist(xs)
           ys <- unlist(ys)
           labels <- unlist(labels)
@@ -1124,7 +1127,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
         }
       }
     } # End add gene annotations
-    
+
   }
 
   ##create 2d plots
@@ -1139,7 +1142,7 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
           createPlot(d2,d1)
         } else {
           createPlot(d1,d2)
-        } 
+        }
         count = count + 1;
       } else { ##just plot the specified samples
         if( (sampleNames[d1] %in% samplesToPlot) & (sampleNames[d2] %in% samplesToPlot)){
@@ -1148,17 +1151,17 @@ sc.plot2d <- function(sco, outputFile=NULL, positionsToHighlight=NULL, highlight
           } else {
             createPlot(d1,d2)
           }
-          
+
         count = count + 1;
         }
-      }        
+      }
     }
   }
   if(count < 1){
     print ("WARNING: no pair of samples matched the samplesToPlot argument. Nothing plotted");
   }
-  
-  
+
+
   if(!is.null(outputFile)){
     devoff = dev.off()
   }
