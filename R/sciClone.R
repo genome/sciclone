@@ -44,7 +44,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   #doPurityScaling=FALSE
   purities=NULL;
 
-  
+
   if(!(is.null(purities))){
     if(length(purities) != dimensions){
       stop(paste("the number of input purities calls(",length(purities),") does not equal the number of input samples (",dimensions,")\nEither provide a purity for each sample, or set purities to NULL and it will be estimated for you",sep=""))
@@ -58,7 +58,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   }
 
 
-  
+
 
   ##-----------------------------------------
   densityData=NULL
@@ -146,9 +146,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
 
   cat(paste(length(vafs.merged.cn2[,1]),"sites (of", length(vafs.merged[,1]), "original sites) are copy number neutral and have adequate depth in all samples\n"))
   cat(paste(nrow(vafs.merged[!as.logical(cnNeutral),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of copy-number alterations\n")
-  cat(paste(nrow(vafs.merged[!as.logical(adequateDepth),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of inadequate depth\n")  
+  cat(paste(nrow(vafs.merged[!as.logical(adequateDepth),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of inadequate depth\n")
   cat(paste(nrow(vafs.merged[!as.logical(cnNeutral) | !as.logical(adequateDepth),])), "sites (of", nrow(vafs.merged), "original sites) were removed because of copy-number alterations or inadequate depth\n")
-  
+
   nonvafcols <- (1:length(names(vafs.merged)))[!((1:length(names(vafs.merged))) %in% vafcols)]
 
   vafs.merged.orig <- vafs.merged
@@ -211,7 +211,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
   vafs.1d = list()
   if(dimensions == 1) { doClusteringAlongMargins <- FALSE }
   if(doClustering == FALSE) { doClusteringAlongMargins <- FALSE }
-  
+
   ## Perform 1D clustering of each dimension independently.
   if(doClusteringAlongMargins == TRUE){
     print("clustering each dimension independently")
@@ -222,7 +222,7 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       numClusters = max(marginalClust[[i]]$cluster.assignments,na.rm=T)
       print(paste("found",numClusters,"clusters using", clusterMethod, "in dimension",sampleNames[i]))
       print(marginalClust[[i]]$cluster.means)
-      
+
       vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
       vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
         by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
@@ -289,7 +289,7 @@ writeClusterSummaryTable <- function(sco, outputFile){
     colnames(a) = c(sco@sampleNames)
     rownames(a) = paste("cluster",1:num.clusters,sep="")
     write.table(a,file=out,row.names=TRUE,col.names=NA,sep="\t",quote=F)
-    
+
     out <- paste(outputFile, ".lower", sep="")
     a = t(sco@clust[["cluster.lower"]])
     colnames(a) = c(sco@sampleNames)
@@ -473,7 +473,7 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         }
         vafs = addCnToVafs(vafs, cn, copyNumberMargins)
     }
-    
+
     ##add depth
     vafs = vafs[vafs$vaf > 0 | ( vafs$var + vafs$ref ) > 0,]
     vafs$depth = mapply(function(var, ref, vaf) ifelse(vaf == 0, var + ref, round(var/(vaf/100))), vafs$var, vafs$ref, vafs$vaf)
@@ -483,22 +483,14 @@ cleanAndAddCN <- function(vafs, cn, num, cnCallsAreLog2, regionsToExclude, useSe
         vafs = vafs[vafs$chr != "X" & vafs$chr != "Y",]
     }
 
-    ## ##remove any sites with less than the minimum depth
-    ## vafs = vafs[vafs$depth >= minimumDepth,]
-    ## if(length(vafs$chr) == 0){
-    ##     print(paste("No variants in sample",num,"exceed a depth of",minimumDepth,". Lower this threshold and try again."))
-    ##     stop()
-    ## }
-    ## print(paste("Number of variants with depth >= ",minimumDepth," in sample ",num," being used for analysis: ",length(vafs$chr),sep=""))
-
     return(vafs)
-
 }
 
 
 
 ##--------------------------------------------------------------------------
-## calculate a samples purity from VAF peaks
+## calculate a sample's purity from VAF peaks - experimental,
+## doesn't work all that well at the moment
 ##
 getPurity <- function(peakPos){
   purity = 0
