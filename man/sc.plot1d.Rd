@@ -11,7 +11,8 @@
                 positionsToHighlight=NULL, highlightsHaveNames=FALSE,
                 overlayClusters=TRUE, overlayIndividualModels=TRUE,
                 showHistogram=FALSE, showTitle=TRUE,
-                biggerText=FALSE, highlightsOnHistogram=FALSE)
+                biggerText=FALSE, highlightsOnHistogram=FALSE,
+                highlightCnPoints=FALSE)
 
 }
 \arguments{
@@ -32,6 +33,13 @@
     boolean argument to decide whether or not to highlight all
     sex-chromosome variants using a different plotting emblem than that
     used for other data points (a triangle is currently used)
+  }
+  \item{highlightCnPoints}{
+    boolean argument to decide whether or not to highlight all
+    variants with chromosome specified as "CN". This is intended to be
+    used when including pseudo-vafs from CN events detected with
+    external methods. Points are highlighted by using a square for the
+    plotting emblem.
   }
   \item{positionsToHighlight}{
     a list of positions in 2-column format 1) chromosome 2) position.

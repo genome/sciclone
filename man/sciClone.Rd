@@ -12,8 +12,9 @@
 \usage{
     sciClone(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
              sampleNames, minimumDepth=100, clusterMethod="bmm",
-             clusterParams=NULL, cnCallsAreLog2=FALSE,
-             useSexChrs=TRUE, doClustering=TRUE, verbose=TRUE,
+             clusterParams="no.apply.overlapping.std.dev.condition",
+             cnCallsAreLog2=FALSE, useSexChrs=TRUE, doClustering=TRUE,
+             verbose=TRUE, 
              copyNumberMargins=0.25, maximumClusters=10,
              annotation=NULL, doClusteringAlongMargins=TRUE,
              plotIntermediateResults=0)

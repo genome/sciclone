@@ -6,13 +6,15 @@
 \description{
   Creates a pdf with one plot for each pair of samples.
 }
-\usage{sc.plot2d(sco, outputFile, positionsToHighlight=NULL,
+\usage{sc.plot2d(sco, outputFile=NULL, positionsToHighlight=NULL,
                  highlightsHaveNames=FALSE, overlayClusters=TRUE,
                  overlayErrorBars=FALSE, ellipse.metadata = list(),
                  singlePage=FALSE, scale=1, xlim=100, ylim=100,
-                 plot.title="Plot Title", clusterLegend=TRUE,
-                 flipSamples=FALSE, xlab="Tumor 1 VAF",
-                 ylab="Tumor 2 VAF", colors=c("red","blue","green"))
+                 plot.title=NULL, samplesToPlot=NULL,
+                 clusterLegend=TRUE, 
+                 flipSamples=FALSE, xlab=NULL,
+                 ylab=NULL, colors=NULL,
+                 plotWidth=7.2, plotHeight=6)
 
 }
 \arguments{
@@ -22,6 +24,10 @@
   \item{outputFile}{
     path/name of pdf file that will contain the plots. Optional, but 
     generally recommended, especially if you have more than two samples
+  }
+  \item{samplesToPlot}{
+    a list of sample names that should be included in the 2d
+    plots. Default is to plot allcombinations of all samples.
   }
   \item{overlayClusters}{
     boolean argument to decide whether to overlay cluster designations
@@ -75,7 +81,14 @@
   }
  \item{clusterLegend}{
    add a legend showing cluster numbers (TRUE/FALSE)
- } 
+ }
+ \item{plotWidth}{
+   width of the pdf (in inches) that is produced (default 7.2)
+ }
+ \item{plotHeight}{
+   height of the pdf (in inches)that is produced (default 6)
+ }
+  
 }  
 \details{  
   Creates a scatter plot for each pairing of samples, with clusters
@@ -83,7 +96,7 @@
 }
 
 \value{
-  does not return anything, creates pdf file
+  does not return anything, creates pdf file or output plot
 }
 
 \examples{
