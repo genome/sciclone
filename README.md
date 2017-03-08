@@ -16,7 +16,7 @@ Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing 
 If you prefer to build the package by hand, follow these steps:
 
 - Make sure that you have the dependencies from the CRAN and BioConductor repos:
-IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods
+IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods, NORMT3, MKmisc, TeachingDemos
 
 - install the bmm package from [https://github.com/genome/bmm](https://github.com/genome/bmm)
 
