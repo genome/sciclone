@@ -22,10 +22,9 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods, NORMT3, MKmisc, Tea
 
 - Download and build from source:
 
-
         git clone git@github.com:genome/sciclone.git
-        R CMD build sciClone
-        R CMD INSTALL sciClone_1.0.7.tar.gz
+        R CMD build sciclone
+        R CMD INSTALL sciClone_1.1.0.tar.gz
 
 ## Usage
     library(sciClone)
