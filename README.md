@@ -2,6 +2,14 @@ An R package for inferring the subclonal architecture of tumors
 
 ## Installation instructions:
 
+As of mid-2022, the NORMT3 package, which is a dependency of sciclone/bmm, has been removed from CRAN. It can be installed manually by doing something like: 
+
+    $ wget https://cran.r-project.org/src/contrib/Archive/NORMT3/NORMT3_1.0.4.tar.gz
+    $ R CMD install NORMT3_1.0.4.tar.gz
+    
+Then proceed with the below instructions:
+
+
 Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing the following:
 
     #install IRanges from bioconductor
