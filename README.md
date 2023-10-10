@@ -9,6 +9,7 @@ As of mid-2022, the NORMT3 package, which is a dependency of sciclone/bmm, has b
     
 Then proceed with the below instructions:
 
+I forked sciclone from the orginial repo to fix the 'Error in xtfrm.data.frame(x) : cannot xtfrm data frames' issue in the sciClone() function. Make sure dplyr is installed (e.g. install.packages('tidyverse') and R >= 4.1.0.
 
 Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing the following:
 
