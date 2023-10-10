@@ -19,7 +19,9 @@ Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing 
     install.packages("devtools")
     library(devtools)
     install_github("genome/bmm")
-    install_github("genome/sciClone")
+    #install_github("genome/sciClone")
+    # install sciClone with fix for 'Error in xtfrm.data.frame(x) : cannot xtfrm data frames'
+    install_github("kunstner/sciClone")
 
 If you prefer to build the package by hand, follow these steps:
 
