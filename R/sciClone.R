@@ -228,7 +228,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
         by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
       ##sort by chr, st
-      vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
+      # vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
+      # hot fix using arrange from dplyr package (axel kunstner 2023-10-10)
+      vafs.1d.merged = vafs.1d.merged |> dplyr::arrange(chr, st)
       vafs.1d[[i]] = vafs.1d.merged
     }
   }
