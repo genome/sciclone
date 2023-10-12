@@ -9,6 +9,8 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
                      copyNumberMargins=0.25, maximumClusters=10, annotation=NULL,
                      doClusteringAlongMargins=TRUE, plotIntermediateResults=0){
 
+  suppressPackageStartupMessages(library(dplyr))
+
   if(verbose){print("checking input data...")}
 
   #how many samples do we have?
@@ -227,8 +229,9 @@ sciClone <- function(vafs, copyNumberCalls=NULL, regionsToExclude=NULL,
       vafs.1d.merged.cn2 = cbind(vafs.merged.cn2.orig,cluster=marginalClust[[i]]$cluster.assignments)
       vafs.1d.merged = merge(vafs.merged.orig,vafs.1d.merged.cn2, by.x=c(1:length(vafs.merged.orig)),
         by.y=c(1:length(vafs.merged.orig)),all.x=TRUE)
+
       ##sort by chr, st
-      vafs.1d.merged = vafs.1d.merged[order(vafs.1d.merged[,1,drop=FALSE], vafs.1d.merged[,2,drop=FALSE]),]
+      vafs.1d.merged = dplyr::arrange(vafs.1d.merged, chr, st)
       vafs.1d[[i]] = vafs.1d.merged
     }
   }
