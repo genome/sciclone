@@ -34,6 +34,19 @@ IRanges, rgl, RColorBrewer, ggplot2, grid, plotrix, methods, NORMT3, MKmisc, Tea
         R CMD build sciclone
         R CMD INSTALL sciClone_1.1.0.tar.gz
 
+Alternatively, a Dockerfile is included and can be built using:
+
+```{bash}
+# change to sciclone repo
+docker build . -t sciclone
+```
+
+Once the image is built you can start an interactive R session using the container by running:
+
+```{bash}
+docker run -it --rm sciclone /usr/bin/env R
+```
+
 ## Usage
     library(sciClone)
 
