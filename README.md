@@ -9,9 +9,9 @@ Both the 'sciClone' package and it's 'bmm' dependency can be installed by doing 
         install.packages("BiocManager")
     BiocManager::install()
     BiocManager::install(c("IRanges","limma"))
-    #install devtools if you don't have it already
-    install.packages("devtools")
-    library(devtools)
+    #install remotes if you don't have it already
+    install.packages("remotes")
+    library(remotes)
     install_github("genome/bmm")
     install_github("genome/sciClone")
 ```
