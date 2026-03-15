@@ -836,7 +836,6 @@ sc.plot2dWithMargins <- function(sco, outputFile, positionsToHighlight=NULL, hig
 ## interval for a given number of successes and total number trials
 compute.binomial.error.bars <- function(successes, total.trials){
   suppressPackageStartupMessages(library(MKmisc))
-  suppressPackageStartupMessages(library(NORMT3))
   # Return a "1 std dev" confidence interval
   width <- as.double(erf(1/sqrt(2)))
   lb <- mapply(function(a,b) binomCI(a, b, conf.level=width, method="jeffreys")$CI[1], successes, total.trials)
